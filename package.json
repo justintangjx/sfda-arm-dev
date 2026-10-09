@@ -1,0 +1,46 @@
+{
+  "name": "sfda-arm-dev",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "packageManager": "pnpm@11.5.2",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "prepare": "node scripts/install-hooks.ts",
+    "dev": "vite",
+    "dev:preview": "CLOUDFLARE_ENV=preview vite",
+    "build": "pnpm typecheck && vite build",
+    "build:preview": "pnpm typecheck && CLOUDFLARE_ENV=preview vite build",
+    "typegen": "wrangler types",
+    "typecheck": "tsc -b",
+    "lint": "oxlint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check:commit": "pnpm lint && pnpm format:check && pnpm typecheck",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "e2e": "playwright test",
+    "check": "pnpm lint && pnpm format:check && pnpm build && pnpm test && pnpm e2e"
+  },
+  "dependencies": {
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-router": "8.4.0"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "1.63.0",
+    "@playwright/test": "1.63.0",
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "@vitejs/plugin-react": "^6.1.1",
+    "oxlint": "^1.81.0",
+    "prettier": "3.9.9",
+    "typescript": "~6.0.2",
+    "vite": "^8.3.0",
+    "vitest": "5.0.3",
+    "wrangler": "4.148.0"
+  }
+}

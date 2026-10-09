@@ -1,0 +1,5 @@
+# You can copy this file to .dev.vars for local development.
+# You can get these public settings from your local Supabase CLI output.
+# Blank values deliberately produce CONFIG_INVALID in the local profile.
+SUPABASE_URL=
+SUPABASE_PUBLIC_KEY=

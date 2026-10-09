@@ -1,0 +1,11 @@
+# Workflow documents and agent instructions have their own owners.
+.agents/
+.codex/
+docs/
+AGENTS.md
+CLAUDE.md
+skills-lock.json
+
+# Generated files are maintained by their tools.
+worker-configuration.d.ts
+pnpm-lock.yaml
