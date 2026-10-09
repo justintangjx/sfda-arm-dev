@@ -1,0 +1,9 @@
+{
+  "tool": "vitest",
+  "gate": null,
+  "additionalTools": [],
+  "e2eTool": "playwright",
+  "testDir": "beside the source, database integration tests in supabase/tests",
+  "filePattern": "*.test.ts",
+  "packageManager": "pnpm"
+}

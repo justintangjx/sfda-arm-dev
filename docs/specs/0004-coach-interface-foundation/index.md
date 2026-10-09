@@ -1,7 +1,7 @@
 # 0004. Coach interface foundation
 
 **Date**: 2026-10-07
-**Status**: Proposed
+**Status**: In Progress
 
 ## Summary
 

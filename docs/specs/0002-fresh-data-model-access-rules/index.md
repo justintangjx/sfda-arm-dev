@@ -1,7 +1,7 @@
 # 0002. Fresh data model and access rules
 
 **Date**: 2026-10-06
-**Status**: Proposed
+**Status**: In Progress
 
 ## Summary
 

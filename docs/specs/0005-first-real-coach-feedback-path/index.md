@@ -1,7 +1,7 @@
 # 0005. First real coach feedback path
 
 **Date**: 2026-10-07
-**Status**: Proposed
+**Status**: In Progress
 
 ## Summary
 

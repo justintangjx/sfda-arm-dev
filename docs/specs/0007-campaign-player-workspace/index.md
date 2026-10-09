@@ -1,7 +1,7 @@
 # 0007. Campaign and player workspace
 
 **Date**: 2026-10-07
-**Status**: Proposed
+**Status**: In Progress
 
 ## Summary
 

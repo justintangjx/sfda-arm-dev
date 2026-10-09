@@ -23,6 +23,8 @@
   "include": [
     "vite.config.ts",
     "vitest.config.ts",
+    "vitest.database.config.ts",
+    "supabase/tests",
     "playwright.config.ts",
     "e2e",
     "scripts"
