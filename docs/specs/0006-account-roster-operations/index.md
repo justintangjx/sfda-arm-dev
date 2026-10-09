@@ -1,7 +1,7 @@
 # 0006. Account and roster operations
 
 **Date**: 2026-10-07
-**Status**: Proposed
+**Status**: In Progress
 
 ## Summary
 

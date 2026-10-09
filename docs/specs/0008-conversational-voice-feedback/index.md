@@ -1,7 +1,7 @@
 # 0008. Conversational voice feedback
 
 **Date**: 2026-10-08
-**Status**: Proposed
+**Status**: In Progress
 
 ## Summary
 

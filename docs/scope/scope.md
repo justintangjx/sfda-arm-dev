@@ -77,7 +77,7 @@ Record the application boundaries and runtime choices within your fixed provider
 
 **Spec:** [0001](../specs/0001-architecture-environments/index.md), design confirmed on 6 October 2026. You authorised the scaffold through `/develop` on 8 October 2026. The scaffold is built and self checked. The feature remains in progress under the GA workflow.
 
-**Code:** browser in [src/app](../../src/app/), shared contracts in [src/domain](../../src/domain/), server in [src/worker](../../src/worker/), setup in [README.md](../../README.md), GitHub Actions checks in [.github/workflows/checks.yml](../../.github/workflows/checks.yml). You chose to save the scaffold checklist in [verify.md](../specs/0001-architecture-environments/verify.md). You authorised GitHub Actions checks through `/develop` on 9 October 2026. The workflow is built and self checked locally, with browser checks using the installed Chrome fallback. A GitHub run remains to be verified.
+**Code:** browser in [src/app](../../src/app/), shared contracts in [src/domain](../../src/domain/), server in [src/worker](../../src/worker/), setup in [README.md](../../README.md), GitHub Actions checks in [.github/workflows/checks.yml](../../.github/workflows/checks.yml). You chose to save the scaffold checklist in [verify.md](../specs/0001-architecture-environments/verify.md). You authorised GitHub Actions checks through `/develop` on 9 October 2026. The workflow is built and self checked locally, with browser checks using the installed Chrome fallback. You confirmed that PR [#1](https://github.com/justintangjx/sfda-arm-dev/pull/1) passed `Scaffold checks` on GitHub. That PR is merged in commit `b58b615`. The main branch run, required branch status, deliberate failure and fork checks have no recorded verification. The independent workflow review is recorded in [2026-10-09-main.md](../reviews/2026-10-09-main.md).
 
 * [x] Decide the architecture (spec): `/architect architecture and environments`
 * [x] Scaffold the runtime foundation: `/develop stack and architecture foundation: scaffold`
@@ -99,16 +99,18 @@ Define people, account roles, campaigns, competitions, roster membership, coach 
 
 **Done when:** the model supports one team and competition per campaign, unlimited preparation observations, one final submission per coach, player and competition, private author and admin access, and explicit draft, correction, retention and membership rules enforced at the data boundary.
 
-**Spec:** [0002](../specs/0002-fresh-data-model-access-rules/index.md), design confirmed on 6 October 2026. Implementation remains unstarted and requires separate authorisation.
+**Spec:** [0002](../specs/0002-fresh-data-model-access-rules/index.md), design confirmed on 6 October 2026. Implementation built on 9 October 2026 under your `/develop` request. Separate GA verification and review remain open.
+
+**Code:** `supabase/migrations/`, `supabase/tests/`, `src/domain/feedback.ts`, `src/domain/database.types.ts`, `src/app/data/` and `scripts/supabase-local.ts`.
 
 * [x] Design the model (spec): `/architect fresh data model and access rules`
-* [ ] Build it: `/develop fresh data model and access rules`
-  * [ ] Establish core schema, permanent pairings, private reads and preparation write contracts. AC-1, AC-2, AC-3, AC-4, AC-5, AC-11, AC-12, AC-14, AC-15.
-  * [ ] Prove the preparation path with real local Auth identities and database evidence. AC-1, AC-2, AC-3, AC-4, AC-5, AC-11, AC-16.
-  * [ ] Add frozen obligations, final submissions, waivers, closure and correction history. AC-2, AC-3, AC-6, AC-7, AC-8, AC-9, AC-10, AC-11, AC-12, AC-14, AC-15.
-  * [ ] Publish voice context contracts and prove permissions, concurrency, retries and retention. AC-1 through AC-16.
+* [x] Build it: `/develop fresh data model and access rules`
+  * [x] Establish core schema, permanent pairings, private reads and preparation write contracts. AC-1, AC-2, AC-3, AC-4, AC-5, AC-11, AC-12, AC-14, AC-15.
+  * [x] Prove the preparation path with real local Auth identities and database evidence. AC-1, AC-2, AC-3, AC-4, AC-5, AC-11, AC-16.
+  * [x] Add frozen obligations, final submissions, waivers, closure and correction history. AC-2, AC-3, AC-6, AC-7, AC-8, AC-9, AC-10, AC-11, AC-12, AC-14, AC-15.
+  * [x] Publish voice context contracts and prove permissions, concurrency, retries and retention. AC-1 through AC-16.
 * [ ] Verify it: `/check verify fresh data model and access rules`
-* [ ] Test it: `/test fresh data model and access rules`
+* [x] Test it: `/test fresh data model and access rules`
 * [ ] Review it (fresh model): `/check review fresh data model and access rules`
 * [ ] Document it: `/document fresh data model and access rules`
 

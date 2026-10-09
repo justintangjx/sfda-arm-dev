@@ -28,7 +28,7 @@ For the local live profile, you can copy `.dev.vars.example` to `.dev.vars` and 
 pnpm dev
 ```
 
-Without these settings, `/api/health` and `/api/config` return `503 CONFIG_INVALID`. Missing settings never select preview mode. Supabase setup and migrations belong to later features. The scaffold does not connect to a database.
+Without these settings, `/api/health` and `/api/config` return `503 CONFIG_INVALID`. Missing settings never select preview mode. The local data model and access rules are available through Supabase, as described below. The foundation screen has no account or feedback interface yet.
 
 ## Configuration
 
@@ -54,10 +54,35 @@ Worker and account names in `wrangler.jsonc` are local scaffold identifiers. Hos
 | `src/app/`             | Browser entry and React Router, currently a plain foundation placeholder      |
 | `src/domain/`          | Pure shared response contracts, with no runtime or secret imports             |
 | `src/worker/`          | Standard Worker Fetch handler and configuration validation                    |
-| `supabase/migrations/` | Reserved for reviewed SQL migrations, currently empty                         |
+| `supabase/migrations/` | Two SQL slices for preparation and the final lifecycle                        |
 | `e2e/`                 | Browser and API checks against built assets and the real local Worker runtime |
 
-Browser and shared modules cannot import `src/worker/`. Future authentication uses Supabase with sessions held only in memory, as specified in the architecture. Authentication and provider clients are not installed until their features need them.
+Browser and shared modules cannot import `src/worker/`. Future authentication uses Supabase with sessions held only in memory, as specified in the architecture. The Supabase client is installed for the data slice. Account delivery, sign in screens and voice providers remain separate features.
+
+## Local data model
+
+The data slice implements [spec 0002](docs/specs/0002-fresh-data-model-access-rules/index.md). Supabase owns access rules and atomic writes. The browser uses the caller's token for named database functions. No Worker data proxy or account provisioning endpoint is added.
+
+You can run a Docker compatible runtime, then start this project's local Supabase services:
+
+```sh
+pnpm db:start
+pnpm db:apply
+pnpm db:types
+pnpm test:db
+```
+
+The recorded CLI uses PostgreSQL 17. `db:apply` applies pending local migrations while preserving existing records. `db:types` generates [database.types.ts](src/domain/database.types.ts) from the live schema. The CLI's function types omit nullable arguments, so [database.ts](src/domain/database.ts) adds the explicit null inputs required by the spec.
+
+`test:db` checks the fixed local API target before passing local keys to Vitest in memory. It creates synthetic Auth accounts and records through real Supabase calls. It uses the fixed local database container for schema, grant, fingerprint and calendar evidence. The trusted fixture setup is not a production admin bootstrap procedure. The scripts withhold keys and raw provider errors from output.
+
+The checks cover private reads and direct write denial, permanent pairings, draft versions, reviewed submissions, stage changes, frozen obligations, final and waiver races, completion, corrections, revocation and retention. A lost response check commits a real database write, then deliberately drops its network response. Provider voice calls remain off. The shared voice contract tests are simulations, not live provider evidence.
+
+Public signup is disabled. The local email provider remains enabled so provisioned accounts can use password login. Local Auth, profile and feedback fixtures are created at runtime. No credentials or real player data are included in source.
+
+You can replay the migrations from scratch with `pnpm db:reset`. This removes local fixture data and refuses any Auth account outside the generated synthetic fixture. It never uses a linked or hosted project. You can restart local services after configuration changes with `pnpm db:restart`, which preserves data.
+
+Submitted originals, pairings, obligations, corrections, waivers, receipts and audits are retained. Ending a feedback stage deletes its unfinished drafts in the same transaction. Approved data deletion, account delivery, the coach interface, live voice and production migration delivery remain separate work. Real player use still needs the project's consent and location decisions and release evidence.
 
 ## Checks
 
@@ -67,7 +92,7 @@ You can run the scaffold checks together:
 pnpm check
 ```
 
-You can also run `pnpm lint`, `pnpm format:check`, `pnpm typecheck`, `pnpm build`, `pnpm test` and `pnpm e2e` separately. Vitest checks configuration failures and log redaction in Node. Playwright builds the explicit preview profile and checks React, direct SPA navigation, uncached API responses and JSON errors through workerd. These checks do not establish database permissions, real authentication or hosted readiness.
+You can also run `pnpm lint`, `pnpm format:check`, `pnpm typecheck`, `pnpm build`, `pnpm test` and `pnpm e2e` separately. Vitest checks configuration failures and log redaction in Node. Playwright builds the explicit preview profile and checks React, direct SPA navigation, uncached API responses and JSON errors through workerd. These scaffold checks do not establish database permissions, real authentication or hosted readiness. You can use the separate `pnpm test:db` command for real local database evidence. It requires Docker and the applied migrations, and is not silently skipped by `pnpm check`.
 
 GitHub Actions runs the same `pnpm check` command for pull requests and pushes to `main`, through [.github/workflows/checks.yml](.github/workflows/checks.yml). It uses Node from `.node-version`, pnpm from `package.json`, the frozen lockfile and Playwright's Chromium with its Linux dependencies. Actions are pinned to full commit IDs. New commits cancel older checks for the same pull request or branch.
 
@@ -89,4 +114,4 @@ The Git hook in `.githooks/pre-commit` runs `pnpm check:commit`, which runs lint
 
 You can activate the hook with `pnpm prepare`. Fresh dependency installation also runs this setup, but pnpm may skip it when repeating an unchanged install. Setup is safe to repeat and uses only this repository's Git configuration. If the folder has no `.git`, setup reports a skip. You can run `pnpm prepare` again once a Git repository exists. Existing custom hook settings or hooks in the default Git hooks directory are preserved, with a message explaining the skip.
 
-The scope remains in progress under the GA workflow. Suggested next: `/audit` to capture conventions from this scaffold. Hosted setup, production deployment, database features and coach interface work remain separate tasks.
+The scope remains in progress under the GA workflow. Suggested next: `/check verify fresh data model and access rules`, then independent review and release evidence. Hosted setup, production deployment, account delivery and coach interface work remain separate tasks.

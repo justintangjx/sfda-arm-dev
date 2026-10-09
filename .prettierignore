@@ -9,3 +9,6 @@ skills-lock.json
 # Generated files are maintained by their tools.
 worker-configuration.d.ts
 pnpm-lock.yaml
+
+# Database types are generated from the live local schema.
+src/domain/database.types.ts
