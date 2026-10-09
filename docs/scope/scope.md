@@ -77,10 +77,11 @@ Record the application boundaries and runtime choices within your fixed provider
 
 **Spec:** [0001](../specs/0001-architecture-environments/index.md), design confirmed on 6 October 2026. You authorised the scaffold through `/develop` on 8 October 2026. The scaffold is built and self checked. The feature remains in progress under the GA workflow.
 
-**Code:** browser in [src/app](../../src/app/), shared contracts in [src/domain](../../src/domain/), server in [src/worker](../../src/worker/), setup in [README.md](../../README.md). You chose to save the scaffold checklist in [verify.md](../specs/0001-architecture-environments/verify.md).
+**Code:** browser in [src/app](../../src/app/), shared contracts in [src/domain](../../src/domain/), server in [src/worker](../../src/worker/), setup in [README.md](../../README.md), GitHub Actions checks in [.github/workflows/checks.yml](../../.github/workflows/checks.yml). You chose to save the scaffold checklist in [verify.md](../specs/0001-architecture-environments/verify.md). You authorised GitHub Actions checks through `/develop` on 9 October 2026. The workflow is built and self checked locally, with browser checks using the installed Chrome fallback. A GitHub run remains to be verified.
 
 * [x] Decide the architecture (spec): `/architect architecture and environments`
 * [x] Scaffold the runtime foundation: `/develop stack and architecture foundation: scaffold`
+* [x] Add GitHub Actions checks: `/develop architecture and environments: GitHub Actions checks`
 
 ### 2. Coding standards and agent context · in-progress
 

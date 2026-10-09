@@ -69,6 +69,10 @@ pnpm check
 
 You can also run `pnpm lint`, `pnpm format:check`, `pnpm typecheck`, `pnpm build`, `pnpm test` and `pnpm e2e` separately. Vitest checks configuration failures and log redaction in Node. Playwright builds the explicit preview profile and checks React, direct SPA navigation, uncached API responses and JSON errors through workerd. These checks do not establish database permissions, real authentication or hosted readiness.
 
+GitHub Actions runs the same `pnpm check` command for pull requests and pushes to `main`, through [.github/workflows/checks.yml](.github/workflows/checks.yml). It uses Node from `.node-version`, pnpm from `package.json`, the frozen lockfile and Playwright's Chromium with its Linux dependencies. Actions are pinned to full commit IDs. New commits cancel older checks for the same pull request or branch.
+
+The workflow uses read access to repository contents and does not retain checkout credentials or reference production secrets. Pull requests use the ordinary `pull_request` event, including forks. Production deployment remains separate work. Once a GitHub run passes, you can require the `Scaffold checks` status in your main branch rules.
+
 If Playwright needs its Chromium binary, you can install it with `pnpm exec playwright install chromium`. You can close any process on port 5173 before running `pnpm e2e`; its server is isolated and does not reuse an existing app.
 
 If the browser download is unavailable and you already have Google Chrome installed, you can use `PLAYWRIGHT_BROWSER_CHANNEL=chrome pnpm e2e`. The default uses Playwright's recorded Chromium version; this optional setting uses your installed browser instead.
@@ -85,4 +89,4 @@ The Git hook in `.githooks/pre-commit` runs `pnpm check:commit`, which runs lint
 
 You can activate the hook with `pnpm prepare`. Fresh dependency installation also runs this setup, but pnpm may skip it when repeating an unchanged install. Setup is safe to repeat and uses only this repository's Git configuration. If the folder has no `.git`, setup reports a skip. You can run `pnpm prepare` again once a Git repository exists. Existing custom hook settings or hooks in the default Git hooks directory are preserved, with a message explaining the skip.
 
-The scope remains in progress under the GA workflow. Suggested next: `/audit` to capture conventions from this scaffold. Hosted setup, delivery workflows, database features and coach interface work remain separate tasks.
+The scope remains in progress under the GA workflow. Suggested next: `/audit` to capture conventions from this scaffold. Hosted setup, production deployment, database features and coach interface work remain separate tasks.
