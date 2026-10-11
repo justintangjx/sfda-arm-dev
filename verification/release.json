@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "shippedCapabilities": ["foundation"],
+  "requestedActivations": [],
+  "migrations": [],
+  "checkRequirements": [
+    "build",
+    "types",
+    "lint",
+    "format",
+    "unit",
+    "harness",
+    "browser"
+  ],
+  "inputPaths": [
+    "src",
+    "tools/harness",
+    "e2e",
+    "package.json",
+    "pnpm-lock.yaml",
+    "tsconfig.app.json",
+    "tsconfig.node.json",
+    "tsconfig.worker.json",
+    "tsconfig.harness.json",
+    "vite.config.ts",
+    "vitest.config.ts",
+    "vitest.database.config.ts",
+    "playwright.config.ts",
+    "wrangler.jsonc",
+    "verification/checks.json",
+    "verification/cases",
+    "verification/owners.json",
+    "verification/release.json",
+    "verification/database-coverage.json",
+    ".github/workflows/checks.yml"
+  ],
+  "actualDevices": [
+    {
+      "os": "iOS",
+      "browser": "Safari",
+      "engine": "WebKit",
+      "inputMode": "microphone"
+    },
+    {
+      "os": "Android",
+      "browser": "Chrome",
+      "engine": "Chromium",
+      "inputMode": "microphone"
+    }
+  ]
+}

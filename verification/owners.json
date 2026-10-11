@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "repository": "justintangjx/sfda-arm-dev",
+  "owner": [],
+  "pilot_coach": [],
+  "trustedWorkflowPath": ".github/workflows/checks.yml"
+}

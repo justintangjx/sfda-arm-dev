@@ -120,15 +120,17 @@ Define a small harness, meaning one repeatable entry point that runs relevant ch
 
 **Done when:** the approved contract separates deterministic checks, real database access tests, provider evals and human browser checks, maps each acceptance criterion to evidence, reports failures or missing checks honestly and uses synthetic data by default.
 
-**Spec:** [0003](../specs/0003-verification-harness-eval-contract/index.md), design confirmed on 6 October 2026. Implementation remains unstarted and requires separate authorisation.
+**Spec:** [0003](../specs/0003-verification-harness-eval-contract/index.md), design confirmed on 6 October 2026. You authorised implementation through `/develop` on 11 October 2026. The runner and evidence contracts are built and self checked. The feature remains in progress under the GA workflow.
+
+**Code:** runner, validators, review scoring, provenance, migration reader and future adapter contracts in [tools/harness](../../tools/harness/), entry point in [scripts/verify.ts](../../scripts/verify.ts), definitions and synthetic cases in [verification](../../verification/), commands and verification steps in [verification/README.md](../../verification/README.md), CI and 30 day report retention in [.github/workflows/checks.yml](../../.github/workflows/checks.yml). The foundation command passed build, types, lint, format, 109 logic checks and 23 harness checks. Six Chromium desktop and mobile checks passed separately through workerd. WebKit downloads timed out. After you restarted OrbStack and authorised Docker access on 11 October 2026, `APP_ENV=local pnpm verify --mode check --profile campaign --checks database_preparation,database_campaign` passed 18 preparation and 20 campaign tests against actual local Supabase, all on their first attempt. The report is `.verification/runs/4a7675be-40f5-4aac-b06b-f637adb31e2e/report.json`; its database checks map all sixteen data criteria. Full browser and GitHub execution evidence remain pending. Corpus approval, production setup, live provider, speech and actual device evidence remain explicitly missing, and release readiness remains false.
 
 * [x] Design the verification contract (spec): `/architect verification harness and eval contract`
 * [ ] Build it: `/develop verification harness and eval contract`
   * [ ] Prove the shared runner, structured reports and foundation browser/logic adapters locally and in CI. AC-1, AC-2, AC-3, AC-4, AC-8, AC-11, AC-14.
-  * [ ] Connect the real local database checks with safe synthetic setup and complete data rule mappings. AC-3, AC-5, AC-6, AC-14.
-  * [ ] Add ten text cases, per attempt integrity review, quality scoring, trusted approvals and retained evidence. AC-8, AC-9, AC-10, AC-11, AC-12.
-  * [ ] Implement phase specific release gates, migration history reading and future provider/smoke adapter contracts. AC-3, AC-6, AC-7, AC-9, AC-10, AC-12, AC-13.
-  * [ ] Prove failure, retry, retention, interruption and provenance behaviour, and record reproducible evidence. AC-1 through AC-14.
+  * [x] Connect the real local database checks with safe synthetic setup and complete data rule mappings. AC-3, AC-5, AC-6, AC-14.
+  * [x] Add ten text cases, per attempt integrity review, quality scoring, trusted approvals and retained evidence. AC-8, AC-9, AC-10, AC-11, AC-12.
+  * [x] Implement phase specific release gates, migration history reading and future provider/smoke adapter contracts. AC-3, AC-6, AC-7, AC-9, AC-10, AC-12, AC-13.
+  * [x] Prove failure, retry, retention, interruption and provenance behaviour, and record reproducible evidence. AC-1 through AC-14.
 * [ ] Verify it: `/check verify verification harness and eval contract`
 * [ ] Test it: `/test verification harness and eval contract`
 * [ ] Review it (fresh model): `/check review verification harness and eval contract`

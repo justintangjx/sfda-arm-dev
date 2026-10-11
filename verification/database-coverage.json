@@ -1,0 +1,253 @@
+{
+  "schemaVersion": 1,
+  "spec": "docs/specs/0002-fresh-data-model-access-rules/index.md",
+  "roles": [
+    "anonymous",
+    "player",
+    "author",
+    "other_coach",
+    "former_coach",
+    "disabled_caller",
+    "admin"
+  ],
+  "mappings": [
+    {
+      "checkId": "database_preparation",
+      "path": "supabase/tests/preparation.test.ts",
+      "testName": "runs the thin Auth, assignment, reviewed submission and private read path (covers: AC-1, AC-2, AC-3, AC-4, AC-5, AC-16)",
+      "criteria": ["AC-1", "AC-2", "AC-3", "AC-4", "AC-5", "AC-16"]
+    },
+    {
+      "checkId": "database_preparation",
+      "path": "supabase/tests/preparation.test.ts",
+      "testName": "keeps drafts private, validates explicit review and consumes the reviewed snapshot (covers: AC-3, AC-4, AC-5, AC-12, AC-13)",
+      "criteria": ["AC-3", "AC-4", "AC-5", "AC-12", "AC-13"]
+    },
+    {
+      "checkId": "database_preparation",
+      "path": "supabase/tests/preparation.test.ts",
+      "testName": "binds a pairing to its first campaign even without feedback and after removal (covers: AC-2, AC-11)",
+      "criteria": ["AC-2", "AC-11"]
+    },
+    {
+      "checkId": "database_preparation",
+      "path": "supabase/tests/preparation.test.ts",
+      "testName": "replays simultaneous requests once and rejects changed payloads with no extra audit (covers: AC-12, AC-15)",
+      "criteria": ["AC-12", "AC-15"]
+    },
+    {
+      "checkId": "database_preparation",
+      "path": "supabase/tests/preparation.test.ts",
+      "testName": "preserves former coach reads but stops writes, and checks revocation against an issued token (covers: AC-3, AC-11)",
+      "criteria": ["AC-3", "AC-11"]
+    },
+    {
+      "checkId": "database_preparation",
+      "path": "supabase/tests/preparation.test.ts",
+      "testName": "rejects invalid dates, content, names, roles and future observations without partial effects (covers: AC-1, AC-5, AC-15)",
+      "criteria": ["AC-1", "AC-5", "AC-15"]
+    },
+    {
+      "checkId": "database_preparation",
+      "path": "supabase/tests/preparation.test.ts",
+      "testName": "denies ordinary direct DML and forbidden profile and receipt columns (covers: AC-3, AC-15, AC-16)",
+      "criteria": ["AC-3", "AC-15", "AC-16"]
+    },
+    {
+      "checkId": "database_preparation",
+      "path": "supabase/tests/preparation.test.ts",
+      "testName": "isolates two assigned authors and protects discard with ownership and version checks (covers: AC-3, AC-4, AC-12, AC-14, AC-15)",
+      "criteria": ["AC-3", "AC-4", "AC-12", "AC-14", "AC-15"]
+    },
+    {
+      "checkId": "database_preparation",
+      "path": "supabase/tests/preparation.test.ts",
+      "testName": "stops preparation writes for a withdrawn player while retaining submitted history (covers: AC-3, AC-11)",
+      "criteria": ["AC-3", "AC-11"]
+    },
+    {
+      "checkId": "database_preparation",
+      "path": "supabase/tests/preparation.test.ts",
+      "testName": "checks current account access before replaying a committed request (covers: AC-1, AC-11, AC-12, AC-15)",
+      "criteria": ["AC-1", "AC-11", "AC-12", "AC-15"]
+    },
+    {
+      "checkId": "database_preparation",
+      "path": "supabase/tests/preparation.test.ts",
+      "testName": "keeps every preparation table scoped to assigned callers and denies missing profiles (covers: AC-1, AC-2, AC-3, AC-11, AC-15, AC-16)",
+      "criteria": ["AC-1", "AC-2", "AC-3", "AC-11", "AC-15", "AC-16"]
+    },
+    {
+      "checkId": "database_preparation",
+      "path": "supabase/tests/preparation.test.ts",
+      "testName": "rejects malformed reviewed input without a receipt or audit %# (covers: AC-5, AC-13, AC-15)",
+      "criteria": ["AC-5", "AC-13", "AC-15"]
+    },
+    {
+      "checkId": "database_preparation",
+      "path": "supabase/tests/preparation.test.ts",
+      "testName": "denies a tampered token before returning data (covers: AC-1, AC-3, AC-16)",
+      "criteria": ["AC-1", "AC-3", "AC-16"]
+    },
+    {
+      "checkId": "database_campaign",
+      "path": "supabase/tests/final-lifecycle.test.ts",
+      "testName": "freezes exact active pairings, deletes preparation drafts and replays a deleted reference (covers: AC-6, AC-7, AC-11, AC-12, AC-14)",
+      "criteria": ["AC-6", "AC-7", "AC-11", "AC-12", "AC-14"]
+    },
+    {
+      "checkId": "database_campaign",
+      "path": "supabase/tests/final-lifecycle.test.ts",
+      "testName": "allows one final under distinct concurrent requests and replays the committed request after closure (covers: AC-8, AC-12, AC-15)",
+      "criteria": ["AC-8", "AC-12", "AC-15"]
+    },
+    {
+      "checkId": "database_campaign",
+      "path": "supabase/tests/final-lifecycle.test.ts",
+      "testName": "orders final submission against waiver and closes only when all obligations are resolved (covers: AC-9, AC-12)",
+      "criteria": ["AC-9", "AC-12"]
+    },
+    {
+      "checkId": "database_campaign",
+      "path": "supabase/tests/final-lifecycle.test.ts",
+      "testName": "keeps waivers permanent after restoration and deletes final drafts on closure (covers: AC-9, AC-14)",
+      "criteria": ["AC-9", "AC-14"]
+    },
+    {
+      "checkId": "database_campaign",
+      "path": "supabase/tests/final-lifecycle.test.ts",
+      "testName": "appends ordered corrections after closure while preserving the original and submission time (covers: AC-3, AC-10, AC-12, AC-14)",
+      "criteria": ["AC-3", "AC-10", "AC-12", "AC-14"]
+    },
+    {
+      "checkId": "database_campaign",
+      "path": "supabase/tests/final-lifecycle.test.ts",
+      "testName": "keeps coach completion private and pages tied timestamps without duplicates (covers: AC-3, AC-6, AC-9)",
+      "criteria": ["AC-3", "AC-6", "AC-9"]
+    },
+    {
+      "checkId": "database_campaign",
+      "path": "supabase/tests/final-lifecycle.test.ts",
+      "testName": "handles an explicit zero obligation snapshot without skipping stages (covers: AC-6, AC-9)",
+      "criteria": ["AC-6", "AC-9"]
+    },
+    {
+      "checkId": "database_campaign",
+      "path": "supabase/tests/final-lifecycle.test.ts",
+      "testName": "orders draft save against stage end so a late save cannot resurrect content (covers: AC-6, AC-12, AC-14)",
+      "criteria": ["AC-6", "AC-12", "AC-14"]
+    },
+    {
+      "checkId": "database_campaign",
+      "path": "supabase/tests/final-lifecycle.test.ts",
+      "testName": "recovers a simulated lost response after a real commit with one record and audit event (covers: AC-12, AC-15)",
+      "criteria": ["AC-12", "AC-15"]
+    },
+    {
+      "checkId": "database_campaign",
+      "path": "supabase/tests/final-lifecycle.test.ts",
+      "testName": "serializes pairing admission across campaigns and different administrators (covers: AC-2, AC-12)",
+      "criteria": ["AC-2", "AC-12"]
+    },
+    {
+      "checkId": "database_campaign",
+      "path": "supabase/tests/final-lifecycle.test.ts",
+      "testName": "preserves complete metadata snapshots, rejects identity changes and pages admin profiles (covers: AC-1, AC-2, AC-12, AC-15)",
+      "criteria": ["AC-1", "AC-2", "AC-12", "AC-15"]
+    },
+    {
+      "checkId": "database_campaign",
+      "path": "supabase/tests/final-lifecycle.test.ts",
+      "testName": "denies every final table to players and disabled callers, denies direct DML, and requires admin functions (covers: AC-1, AC-3, AC-11, AC-15, AC-16)",
+      "criteria": ["AC-1", "AC-3", "AC-11", "AC-15", "AC-16"]
+    },
+    {
+      "checkId": "database_campaign",
+      "path": "supabase/tests/final-lifecycle.test.ts",
+      "testName": "pins database serialization, grants, restrictive relationships and the Singapore midnight boundary (covers: AC-5, AC-14, AC-16)",
+      "criteria": ["AC-5", "AC-14", "AC-16"]
+    },
+    {
+      "checkId": "database_campaign",
+      "path": "supabase/tests/final-lifecycle.test.ts",
+      "testName": "consumes an incomplete final draft with reviewed replacement content (covers: AC-4, AC-5, AC-8, AC-9, AC-12)",
+      "criteria": ["AC-4", "AC-5", "AC-8", "AC-9", "AC-12"]
+    },
+    {
+      "checkId": "database_campaign",
+      "path": "supabase/tests/final-lifecycle.test.ts",
+      "testName": "rejects new coaches and players after the obligation freeze without adding audit events (covers: AC-6, AC-7, AC-15)",
+      "criteria": ["AC-6", "AC-7", "AC-15"]
+    },
+    {
+      "checkId": "database_campaign",
+      "path": "supabase/tests/final-lifecycle.test.ts",
+      "testName": "keeps obligations, corrections, waivers, receipts and audits immutable even at the trusted fixture boundary (covers: AC-10, AC-14, AC-15)",
+      "criteria": ["AC-10", "AC-14", "AC-15"]
+    },
+    {
+      "checkId": "database_campaign",
+      "path": "supabase/tests/final-lifecycle.test.ts",
+      "testName": "rolls back a reused key with a different action and retains exactly one audit (covers: AC-12, AC-15)",
+      "criteria": ["AC-12", "AC-15"]
+    },
+    {
+      "checkId": "database_campaign",
+      "path": "supabase/tests/final-lifecycle.test.ts",
+      "testName": "filters obligation status within each coach scope and rejects malformed cursors (covers: AC-3, AC-9, AC-16)",
+      "criteria": ["AC-3", "AC-9", "AC-16"]
+    },
+    {
+      "checkId": "database_campaign",
+      "path": "supabase/tests/final-lifecycle.test.ts",
+      "testName": "validates %s cursor values before a generic database plan (covers: AC-3, AC-16)",
+      "criteria": ["AC-3", "AC-16"]
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "thin_path",
+      "checkIds": ["database_preparation"]
+    },
+    {
+      "id": "permission_matrix",
+      "checkIds": ["database_preparation", "database_campaign"]
+    },
+    {
+      "id": "drafts",
+      "checkIds": ["database_preparation"]
+    },
+    {
+      "id": "dates_inputs",
+      "checkIds": ["database_preparation", "database_campaign"]
+    },
+    {
+      "id": "freeze_collisions",
+      "checkIds": ["database_preparation", "database_campaign"]
+    },
+    {
+      "id": "finals",
+      "checkIds": ["database_campaign"]
+    },
+    {
+      "id": "waivers_closure",
+      "checkIds": ["database_campaign"]
+    },
+    {
+      "id": "history_correction",
+      "checkIds": ["database_preparation", "database_campaign"]
+    },
+    {
+      "id": "lost_response_stale_stage",
+      "checkIds": ["database_preparation", "database_campaign"]
+    },
+    {
+      "id": "voice_proposal_boundary",
+      "checkIds": ["database_preparation", "voice_simulation"]
+    },
+    {
+      "id": "retention",
+      "checkIds": ["database_preparation", "database_campaign"]
+    }
+  ]
+}

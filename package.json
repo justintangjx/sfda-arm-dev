@@ -28,7 +28,8 @@
     "db:types": "node scripts/supabase-local.ts types",
     "test:db": "node scripts/supabase-local.ts test",
     "db:restart": "node scripts/supabase-local.ts restart",
-    "db:reset": "node scripts/supabase-local.ts reset"
+    "db:reset": "node scripts/supabase-local.ts reset",
+    "verify": "node scripts/verify.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.3",
@@ -40,10 +41,12 @@
     "@cloudflare/vite-plugin": "1.63.0",
     "@playwright/test": "1.63.0",
     "@types/node": "^24.13.3",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.1.1",
     "oxlint": "^1.81.0",
+    "pg": "^8.23.1",
     "prettier": "3.9.9",
     "supabase": "^2.120.0",
     "typescript": "~6.0.2",
