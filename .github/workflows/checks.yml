@@ -37,8 +37,21 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Install Chromium
-        run: pnpm exec playwright install --with-deps chromium
+      - name: Install browser engines
+        run: pnpm exec playwright install --with-deps chromium webkit
 
-      - name: Run scaffold checks
-        run: pnpm check
+      - name: Run verification harness
+        run: pnpm verify --mode check --profile foundation
+
+      - name: Retain synthetic verification reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: verification-${{ github.sha }}-${{ github.run_id }}
+          path: |
+            .verification/runs/**/report.json
+            .verification/runs/**/compact-summary.json
+            .verification/runs/**/summary.txt
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30

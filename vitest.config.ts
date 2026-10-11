@@ -7,6 +7,7 @@ export default defineConfig({
       'src/worker/**/*.test.ts',
       'src/domain/**/*.test.ts',
       'src/app/**/*.test.ts',
+      'tools/harness/**/*.test.ts',
     ],
     clearMocks: true,
   },

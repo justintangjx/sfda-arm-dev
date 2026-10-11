@@ -1,0 +1,360 @@
+{
+  "schemaVersion": 1,
+  "checks": [
+    {
+      "id": "build",
+      "name": "Application build",
+      "evidenceKind": "unit",
+      "specs": [
+        {
+          "path": "docs/specs/0003-verification-harness-eval-contract/index.md",
+          "criteria": ["AC-1", "AC-4"]
+        }
+      ],
+      "capabilities": ["foundation"],
+      "adapterId": "build",
+      "timeoutSeconds": 900
+    },
+    {
+      "id": "types",
+      "name": "Strict TypeScript",
+      "evidenceKind": "unit",
+      "specs": [
+        {
+          "path": "docs/specs/0003-verification-harness-eval-contract/index.md",
+          "criteria": ["AC-1", "AC-4"]
+        }
+      ],
+      "capabilities": ["foundation"],
+      "adapterId": "types",
+      "timeoutSeconds": 60
+    },
+    {
+      "id": "lint",
+      "name": "Source lint",
+      "evidenceKind": "unit",
+      "specs": [
+        {
+          "path": "docs/specs/0003-verification-harness-eval-contract/index.md",
+          "criteria": ["AC-1", "AC-14"]
+        }
+      ],
+      "capabilities": ["foundation"],
+      "adapterId": "lint",
+      "timeoutSeconds": 60
+    },
+    {
+      "id": "format",
+      "name": "Source format",
+      "evidenceKind": "unit",
+      "specs": [
+        {
+          "path": "docs/specs/0003-verification-harness-eval-contract/index.md",
+          "criteria": ["AC-1", "AC-14"]
+        }
+      ],
+      "capabilities": ["foundation"],
+      "adapterId": "format",
+      "timeoutSeconds": 60
+    },
+    {
+      "id": "unit",
+      "name": "Existing logic suite",
+      "evidenceKind": "unit",
+      "specs": [
+        {
+          "path": "docs/specs/0003-verification-harness-eval-contract/index.md",
+          "criteria": ["AC-1", "AC-4", "AC-11"]
+        }
+      ],
+      "capabilities": ["foundation"],
+      "adapterId": "unit",
+      "timeoutSeconds": 900
+    },
+    {
+      "id": "harness",
+      "name": "Harness boundary suite",
+      "evidenceKind": "unit",
+      "specs": [
+        {
+          "path": "docs/specs/0003-verification-harness-eval-contract/index.md",
+          "criteria": [
+            "AC-1",
+            "AC-2",
+            "AC-3",
+            "AC-6",
+            "AC-8",
+            "AC-9",
+            "AC-11",
+            "AC-12",
+            "AC-14"
+          ]
+        }
+      ],
+      "capabilities": ["foundation"],
+      "adapterId": "harness",
+      "timeoutSeconds": 900
+    },
+    {
+      "id": "browser",
+      "name": "Workerd browser matrix",
+      "evidenceKind": "fixture_browser",
+      "specs": [
+        {
+          "path": "docs/specs/0003-verification-harness-eval-contract/index.md",
+          "criteria": ["AC-1", "AC-4", "AC-11", "AC-14"]
+        }
+      ],
+      "capabilities": ["foundation"],
+      "adapterId": "browser",
+      "timeoutSeconds": 900
+    },
+    {
+      "id": "database_preparation",
+      "name": "Actual local Auth and preparation rules",
+      "evidenceKind": "local_database",
+      "specs": [
+        {
+          "path": "docs/specs/0003-verification-harness-eval-contract/index.md",
+          "criteria": ["AC-3", "AC-5", "AC-6", "AC-14"]
+        },
+        {
+          "path": "docs/specs/0002-fresh-data-model-access-rules/index.md",
+          "criteria": [
+            "AC-1",
+            "AC-2",
+            "AC-3",
+            "AC-4",
+            "AC-5",
+            "AC-11",
+            "AC-12",
+            "AC-13",
+            "AC-14",
+            "AC-15",
+            "AC-16"
+          ]
+        }
+      ],
+      "capabilities": ["preparation"],
+      "adapterId": "database_preparation",
+      "timeoutSeconds": 900
+    },
+    {
+      "id": "database_campaign",
+      "name": "Actual local lifecycle and races",
+      "evidenceKind": "local_database",
+      "specs": [
+        {
+          "path": "docs/specs/0003-verification-harness-eval-contract/index.md",
+          "criteria": ["AC-3", "AC-5", "AC-6", "AC-14"]
+        },
+        {
+          "path": "docs/specs/0002-fresh-data-model-access-rules/index.md",
+          "criteria": [
+            "AC-1",
+            "AC-2",
+            "AC-3",
+            "AC-4",
+            "AC-5",
+            "AC-6",
+            "AC-7",
+            "AC-8",
+            "AC-9",
+            "AC-10",
+            "AC-11",
+            "AC-12",
+            "AC-13",
+            "AC-14",
+            "AC-15",
+            "AC-16"
+          ]
+        }
+      ],
+      "capabilities": ["campaign"],
+      "adapterId": "database_campaign",
+      "timeoutSeconds": 900
+    },
+    {
+      "id": "voice_simulation",
+      "name": "Voice proposal code boundary simulation",
+      "evidenceKind": "unit",
+      "specs": [
+        {
+          "path": "docs/specs/0003-verification-harness-eval-contract/index.md",
+          "criteria": ["AC-3", "AC-9", "AC-10", "AC-11"]
+        }
+      ],
+      "capabilities": ["voice"],
+      "adapterId": "voice_simulation",
+      "timeoutSeconds": 60
+    },
+    {
+      "id": "voice_quality",
+      "name": "Both reviewers and corpus approval",
+      "evidenceKind": "human",
+      "specs": [
+        {
+          "path": "docs/specs/0003-verification-harness-eval-contract/index.md",
+          "criteria": ["AC-8", "AC-9", "AC-11", "AC-12"]
+        }
+      ],
+      "capabilities": ["voice"],
+      "adapterId": "voice_quality",
+      "timeoutSeconds": 60
+    },
+    {
+      "id": "voice_live",
+      "name": "Actual provider text execution",
+      "evidenceKind": "provider_text",
+      "specs": [
+        {
+          "path": "docs/specs/0003-verification-harness-eval-contract/index.md",
+          "criteria": ["AC-9", "AC-10", "AC-11", "AC-12"]
+        }
+      ],
+      "capabilities": ["voice"],
+      "adapterId": "voice_live",
+      "timeoutSeconds": 60
+    },
+    {
+      "id": "voice_audio",
+      "name": "Actual provider speech execution",
+      "evidenceKind": "provider_audio",
+      "specs": [
+        {
+          "path": "docs/specs/0003-verification-harness-eval-contract/index.md",
+          "criteria": ["AC-4", "AC-10", "AC-12", "AC-13"]
+        }
+      ],
+      "capabilities": ["voice"],
+      "adapterId": "voice_audio",
+      "timeoutSeconds": 60
+    },
+    {
+      "id": "voice_privacy",
+      "name": "Current provider privacy evidence",
+      "evidenceKind": "human",
+      "specs": [
+        {
+          "path": "docs/specs/0003-verification-harness-eval-contract/index.md",
+          "criteria": ["AC-10", "AC-12", "AC-13"]
+        }
+      ],
+      "capabilities": ["voice"],
+      "adapterId": "voice_privacy",
+      "timeoutSeconds": 60
+    },
+    {
+      "id": "actual_devices",
+      "name": "Actual pilot devices",
+      "evidenceKind": "human",
+      "specs": [
+        {
+          "path": "docs/specs/0003-verification-harness-eval-contract/index.md",
+          "criteria": ["AC-4", "AC-10", "AC-12", "AC-13"]
+        }
+      ],
+      "capabilities": ["voice", "pilot"],
+      "adapterId": "actual_devices",
+      "timeoutSeconds": 60
+    },
+    {
+      "id": "ga_review",
+      "name": "Independent implementation review",
+      "evidenceKind": "human",
+      "specs": [
+        {
+          "path": "docs/specs/0003-verification-harness-eval-contract/index.md",
+          "criteria": ["AC-3", "AC-12", "AC-13"]
+        }
+      ],
+      "capabilities": ["pilot"],
+      "adapterId": "ga_review",
+      "timeoutSeconds": 60
+    },
+    {
+      "id": "release_notes",
+      "name": "Approved release documentation",
+      "evidenceKind": "human",
+      "specs": [
+        {
+          "path": "docs/specs/0003-verification-harness-eval-contract/index.md",
+          "criteria": ["AC-8", "AC-13"]
+        }
+      ],
+      "capabilities": ["pilot"],
+      "adapterId": "release_notes",
+      "timeoutSeconds": 60
+    },
+    {
+      "id": "production_smoke",
+      "name": "Exact deployed synthetic smoke",
+      "evidenceKind": "production_smoke",
+      "specs": [
+        {
+          "path": "docs/specs/0003-verification-harness-eval-contract/index.md",
+          "criteria": ["AC-6", "AC-13"]
+        }
+      ],
+      "capabilities": ["pilot"],
+      "adapterId": "production_smoke",
+      "timeoutSeconds": 60
+    },
+    {
+      "id": "account_delivery",
+      "name": "Approved synthetic account delivery",
+      "evidenceKind": "human",
+      "specs": [
+        {
+          "path": "docs/specs/0003-verification-harness-eval-contract/index.md",
+          "criteria": ["AC-6", "AC-13"]
+        }
+      ],
+      "capabilities": ["pilot"],
+      "adapterId": "account_delivery",
+      "timeoutSeconds": 60
+    },
+    {
+      "id": "real_data_policy",
+      "name": "Consent retention and deletion readiness",
+      "evidenceKind": "human",
+      "specs": [
+        {
+          "path": "docs/specs/0003-verification-harness-eval-contract/index.md",
+          "criteria": ["AC-3", "AC-13"]
+        }
+      ],
+      "capabilities": ["pilot"],
+      "adapterId": "real_data_policy",
+      "timeoutSeconds": 60
+    },
+    {
+      "id": "migration_history",
+      "name": "Production migration prerequisites",
+      "evidenceKind": "local_database",
+      "specs": [
+        {
+          "path": "docs/specs/0003-verification-harness-eval-contract/index.md",
+          "criteria": ["AC-6", "AC-7", "AC-13"]
+        }
+      ],
+      "capabilities": ["pilot"],
+      "adapterId": "migration_history",
+      "timeoutSeconds": 60
+    },
+    {
+      "id": "activation_state",
+      "name": "Trusted current deployment activation state",
+      "evidenceKind": "production_smoke",
+      "specs": [
+        {
+          "path": "docs/specs/0003-verification-harness-eval-contract/index.md",
+          "criteria": ["AC-3", "AC-12", "AC-13"]
+        }
+      ],
+      "capabilities": ["pilot"],
+      "adapterId": "activation_state",
+      "timeoutSeconds": 60
+    }
+  ]
+}

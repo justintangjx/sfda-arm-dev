@@ -27,6 +27,7 @@
     "supabase/tests",
     "playwright.config.ts",
     "e2e",
-    "scripts"
+    "scripts",
+    "tools/harness"
   ]
 }
