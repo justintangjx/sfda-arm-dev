@@ -1,11 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
-import {
-  readAccountSummary,
-  record,
-  type AccountSummary,
-} from '../../domain/accounts'
+import type { AccountSummary } from '../../domain/accounts'
 import { executeMutation, prepareMutation } from '../data/mutations'
+import { loadAdmissionCandidates } from '../data/admission'
 import styles from '../coach/coach.module.css'
 import layout from '../accounts/accounts.module.css'
 import {
@@ -29,8 +26,8 @@ type CampaignRow = Readonly<{
   competitions: Readonly<{ name: string }> | null
 }>
 const stageLabel = (stage: string) => stage.replaceAll('_', ' ')
-// Player activation is only allowed before requirements freeze; nothing changes once closed.
-const openForPlayers = (stage: string) =>
+// New members can join only before requirements freeze.
+const openForAdmission = (stage: string) =>
   stage === 'setup' || stage === 'preparation'
 const pageSize = 20
 
@@ -161,23 +158,10 @@ export function CampaignDetailScreen() {
         .eq('campaign_id', id)
         .order('created_at')
         .order('player_id'),
-      client.rpc('admin_list_accounts', {
-        name_query: null,
-        role_filter: null,
-        enabled_filter: true,
-        page_cursor: null,
-        page_size: 100,
-      }),
+      loadAdmissionCandidates(client),
     ])
     if (!alive()) return
-    const accounts = record(eligible.data)?.items
-    if (
-      found.error ||
-      coaches.error ||
-      players.error ||
-      eligible.error ||
-      !Array.isArray(accounts)
-    ) {
+    if (found.error || coaches.error || players.error || !eligible.ok) {
       setState('error')
       return
     }
@@ -216,17 +200,7 @@ export function CampaignDetailScreen() {
         name: nameOf(row.player_id),
       })),
     })
-    setCandidates(
-      accounts
-        .map(readAccountSummary)
-        .filter(
-          (item): item is AccountSummary =>
-            item !== undefined &&
-            item.enabled &&
-            (item.setupStatus === 'ready' ||
-              item.setupStatus === 'not_tracked'),
-        ),
-    )
+    setCandidates(eligible.value)
     setState('ready')
   }, [client, id, alive])
   const action = useAdminAction(load)
@@ -288,12 +262,13 @@ export function CampaignDetailScreen() {
               <p>
                 {campaign.team_name}. Stage: {stageLabel(campaign.stage)}.
               </p>
-              {!openForPlayers(campaign.stage) &&
+              {!openForAdmission(campaign.stage) &&
                 campaign.stage !== 'closed' && (
                   <p className={styles.support}>
-                    Final requirements are frozen. Players cannot be added or
-                    restored now, and withdrawn players stay in history.
-                    Restoring a coach adds no final obligations.
+                    Final requirements are frozen. New coaches and players
+                    cannot be added, and withdrawn players cannot be restored.
+                    Existing removed coaches can be restored without adding
+                    final obligations.
                   </p>
                 )}
               {campaign.stage === 'closed' && (
@@ -388,7 +363,7 @@ export function CampaignDetailScreen() {
   )
 }
 
-function Roster({
+export function Roster({
   role,
   stage,
   members,
@@ -406,8 +381,7 @@ function Roster({
   change: (member: Member) => void
 }>) {
   const title = role === 'coach' ? 'Coach assignments' : 'Player roster'
-  const admissionOpen =
-    stage !== 'closed' && (role === 'coach' || openForPlayers(stage))
+  const admissionOpen = openForAdmission(stage)
   return (
     <section className={styles.card} aria-labelledby={`${role}-heading`}>
       <h2 id={`${role}-heading`}>{title}</h2>
@@ -416,7 +390,7 @@ function Roster({
           {members.map((member) => {
             const canChange =
               stage !== 'closed' &&
-              (member.active || role === 'coach' || openForPlayers(stage))
+              (member.active || role === 'coach' || openForAdmission(stage))
             return (
               <li key={member.id}>
                 <p>
@@ -483,9 +457,11 @@ function Roster({
         </form>
       ) : (
         <p className={styles.support}>
-          {role === 'player'
-            ? 'New players can join only before requirements freeze.'
-            : 'No assignments change after the campaign closes.'}
+          {stage === 'closed'
+            ? 'No memberships change after the campaign closes.'
+            : role === 'player'
+              ? 'New players can join only before requirements freeze.'
+              : 'New coaches can join only before requirements freeze. Existing removed coaches can still be restored.'}
         </p>
       )}
     </section>
