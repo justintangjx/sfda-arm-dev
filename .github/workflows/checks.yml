@@ -43,6 +43,21 @@ jobs:
       - name: Run verification harness
         run: pnpm verify --mode check --profile foundation
 
+      - name: Print verification summaries
+        if: always()
+        shell: bash
+        run: |
+          shopt -s nullglob
+          summaries=(.verification/runs/*/summary.txt .verification/runs/*/*.failure-summary.txt)
+          if ((${#summaries[@]} == 0)); then
+            echo "No verification summaries were produced. Check the earlier steps."
+          else
+            for summary in "${summaries[@]}"; do
+              printf '\n%s\n' "$summary"
+              cat "$summary"
+            done
+          fi
+
       - name: Retain synthetic verification reports
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -52,6 +67,7 @@ jobs:
             .verification/runs/**/report.json
             .verification/runs/**/compact-summary.json
             .verification/runs/**/summary.txt
+            .verification/runs/**/*.failure-summary.txt
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 30

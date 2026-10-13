@@ -1,12 +1,21 @@
 import { randomUUID } from 'node:crypto'
+import { relative } from 'node:path'
 import type { Reporter, TestCase } from 'vitest/node'
 import { atomicJson, hash } from './io.js'
 import { attemptRule, type Attempt } from './contracts.js'
 import * as v from './validation.js'
+import { writeFailureSummary, type TestIdentity } from './failure-summary.js'
 
 export default function safeReporter(): Reporter {
   const attempts: Attempt[] = []
+  const tests = new Map<string, TestIdentity>()
   const result = (test: TestCase) => {
+    tests.set(hash(test.id), {
+      title: test.fullName,
+      file: relative(process.cwd(), test.module.moduleId),
+      line: test.location?.line,
+      project: test.project.name || undefined,
+    })
     const captured = test.meta().harnessAttempts
     if (captured !== undefined) {
       const history = v.parse<readonly Attempt[]>(
@@ -66,12 +75,14 @@ export default function safeReporter(): Reporter {
           integrityFindings: [],
         })
       const path = process.env.HARNESS_ATTEMPTS_FILE
-      if (path)
+      if (path) {
         await atomicJson(path, {
           schemaVersion: 1,
           attempts,
           browserProjects: [],
         })
+        await writeFailureSummary(path, attempts, tests)
+      }
     },
   }
 }

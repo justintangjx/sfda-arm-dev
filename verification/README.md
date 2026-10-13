@@ -11,6 +11,8 @@ pnpm verify --mode check --profile voice
 
 The entry point compiles `tools/harness/` into a new ignored directory before running it. Definitions, checks and cases use schema version 1. Generated reports go into `.verification/runs/<runId>/`. Each run has `report.json`, `compact-summary.json` and `summary.txt`. Reports contain safe codes and synthetic evidence. Child stdout, exception details, credentials, traces and screenshots are omitted.
 
+Each test runner also writes `*.failure-summary.txt` with test names, source locations, projects, attempt numbers and safe reason codes for failed, skipped or cancelled attempts. Earlier failures remain visible when a retry passes. GitHub Actions always prints these files and `summary.txt` in the CI logs and retains them with the reports. Raw assertion values and exception messages remain omitted.
+
 Check mode is advisory. Exit 0 can include missing checks. Exit 1 means an observed failure. Exit 2 means invalid or unsafe input. Every advisory run prints `releaseReady: false`. The report keeps all captured attempts. Passing after a retry is `flaky`. Vitest capture runs around each attempt, before the native runner discards its failed state. Playwright capture records every result. Neither wrapper adds retries to native retries.
 
 You can select known checks for a narrow diagnostic run:

@@ -10,6 +10,7 @@ export default defineConfig(async () => {
   const base = await import(pathToFileURL(join(process.cwd(), name)).href)
   return mergeConfig(base.default, {
     test: {
+      includeTaskLocation: true,
       setupFiles: [
         join(
           dirname(fileURLToPath(import.meta.url)),

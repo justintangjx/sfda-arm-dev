@@ -57,7 +57,7 @@ test('synthetic screen thread has responsive context, paging, unique references 
       page.getByRole('navigation', { name: 'Player roster' }),
     ).toBeVisible()
   await page.screenshot({
-    path: `/private/tmp/sfda-coach-${testInfo.project.name}.png`,
+    path: testInfo.outputPath('sfda-coach.png'),
     fullPage: true,
   })
   expect(
@@ -204,7 +204,7 @@ test('final review focuses Cancel, traps focus and produces a fixed final assess
     .fill('Sample final assessment')
   await page
     .getByRole('button', { name: 'Review final assessment', exact: true })
-    .click()
+    .press('Enter')
   const dialog = page.getByRole('dialog', { name: 'Review final assessment' })
   await expect(
     dialog.getByRole('button', { name: 'Cancel', exact: true }),
@@ -281,12 +281,12 @@ test('offline preserves local editing and signing out clears work data', async (
 })
 test('reflows at 320 pixels with 200 percent text and keeps controls usable', async ({
   page,
-}) => {
+}, testInfo) => {
   await page.setViewportSize({ width: 320, height: 800 })
   await enterPlayer(page)
   await page.evaluate("document.documentElement.style.fontSize = '200%'")
   await page.screenshot({
-    path: '/private/tmp/sfda-coach-reflow.png',
+    path: testInfo.outputPath('sfda-coach-reflow.png'),
     fullPage: true,
   })
   expect(
