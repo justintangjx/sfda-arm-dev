@@ -64,6 +64,13 @@ test('real admin setup, coach password, reviewed preparation submission and sepa
   const playerName = `Synthetic player ${suffix}`
   await login(page, adminEmail, adminPassword)
   await expect(
+    page.getByRole('heading', { name: 'Accounts', exact: true }),
+  ).toBeVisible()
+  await page
+    .getByRole('navigation', { name: 'Admin sections' })
+    .getByRole('link', { name: 'Setup workspace' })
+    .click()
+  await expect(
     page.getByRole('heading', { name: 'Prepare the first feedback path.' }),
   ).toBeVisible()
   const accounts = page.getByRole('group', {

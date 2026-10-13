@@ -44,7 +44,9 @@ Give admins an account directory and campaign membership controls. Let eligible 
 
 **Boundary**: This feature supplies account and membership maintenance, not a player portal, final feedback UI, campaign closure, voice, email editing or deletion. Stage controls implemented by 0005 remain setup to preparation and preparation to competition. Later transitions stay unavailable until scope feature 10 is built. No repeated implementation of the coach workspace is required.
 
-**Review state**: You confirmed the design content on 7 October 2026 after choosing to skip independent critique. Document checks passed. Implementation remains unstarted. Status remains Proposed until implementation advances it; content confirmation does not authorise coding or provisioning.
+**Review state**: You confirmed the design content on 7 October 2026 after choosing to skip independent critique. Document checks passed. Content confirmation did not authorise coding or provisioning.
+
+**Implementation state**: Build plan steps 1 to 4 and the local part of step 5 were implemented with your authorisation on 13 October 2026. Code is in `supabase/migrations/20261013000100_account_operations.sql`, `src/worker/recovery.ts`, `src/worker/password-links.ts`, `src/worker/release.ts`, `src/worker/account-http.ts`, `src/app/accounts/`, `src/app/admin/` and `scripts/operator-admin.ts`. Local evidence comes from `supabase/tests/account-operations.test.ts`, `supabase/tests/worker-recovery.test.ts`, `src/worker/release.test.ts` and a real local browser pass. Production configuration, SMTP, limiter namespaces, an end to end operator run, independent review and release documentation remain open. Implemented deviations: frozen admission keeps the existing `STAGE_LOCKED` code; a completed link is consumed on first use; the directory is read through a caller authorised RPC instead of a Worker route; membership lists are unpaginated and admission pickers load the first 100 eligible accounts; campaign creation stays in the local setup workspace.
 
 ## Rationale
 

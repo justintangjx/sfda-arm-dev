@@ -2,6 +2,7 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
 import { Client } from 'pg'
 import { checked, createFixture, object, rejected, rpc } from './fixture.ts'
+import { expireEmailCooldown, ownerQuery } from './sql.ts'
 
 const pendingSetup = async () => {
   const fixture = await createFixture()
@@ -163,6 +164,12 @@ describe('real private account setup transactions (spec 0005)', () => {
       mutation_id: randomUUID(),
       expected_version: ready.version,
     }
+    const cooling = await fixture.secondAdmin.client.rpc(
+      'begin_setup_link_replacement',
+      { ...replacementArgs, mutation_id: randomUUID() },
+    )
+    expect(cooling.error?.message).toBe('EMAIL_COOLDOWN')
+    await expireEmailCooldown(String(ready.auth_user_id))
     const replacement = await fixture.secondAdmin.client.rpc(
       'begin_setup_link_replacement',
       replacementArgs,
@@ -221,6 +228,67 @@ describe('real private account setup transactions (spec 0005)', () => {
     })
     expect(send.error?.message).toBe('RECONCILIATION_REQUIRED')
   })
+  it('blocks an already disabled pending profile so its link dies and resume cannot enable it (spec 0006)', async () => {
+    const setup = await pendingSetup()
+    const { fixture, id } = setup
+    const digest = createHash('sha256').update(randomBytes(32)).digest('hex')
+    const started = await setup.step('email_started', {
+      capability_digest: digest,
+    })
+    const accepted = await setup.step('email_accepted', {
+      attempt_id: started.email_attempt_id,
+      attempt_generation: started.email_attempt_generation,
+    })
+    const targetId = String(accepted.auth_user_id)
+    const head = () =>
+      ownerQuery([
+        {
+          text: 'select current_link_kind, setup_operation_id from private.account_password_state where profile_id = $1',
+          values: [targetId],
+        },
+      ])
+    expect(await head()).toEqual([
+      { current_link_kind: 'setup', setup_operation_id: id },
+    ])
+    await rpc(fixture.admin, 'set_profile_access', {
+      profile_id: targetId,
+      enabled: false,
+      expected_version: 1,
+      reason: 'Synthetic pending block',
+    })
+    const profile = await fixture.operator
+      .from('profiles')
+      .select('access_enabled,version')
+      .eq('id', targetId)
+      .single()
+    checked(profile.error)
+    expect(profile.data).toEqual({ access_enabled: false, version: 2 })
+    expect(await head()).toEqual([
+      { current_link_kind: null, setup_operation_id: null },
+    ])
+    expect(
+      (
+        await fixture.operator.rpc('get_password_setup_context', {
+          operation_id: id,
+          generation: started.setup_generation,
+          capability_digest: digest,
+        })
+      ).error?.message,
+    ).toBe('LINK_INVALID')
+    const resumed = await fixture.admin.client.rpc('complete_account_setup', {
+      operation_id: id,
+      expected_version: accepted.version,
+    })
+    expect(resumed.error?.message).toBe('RECONCILIATION_REQUIRED')
+    const after = await fixture.operator
+      .from('profiles')
+      .select('access_enabled')
+      .eq('id', targetId)
+      .single()
+    checked(after.error)
+    expect(after.data?.access_enabled).toBe(false)
+  })
+
   it('commits the disabled profile and activation atomically, blocks direct enablement, and preserves receipts on replay', async () => {
     const fixture = await createFixture()
     const email = `synthetic-${randomUUID()}@example.invalid`

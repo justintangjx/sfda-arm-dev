@@ -2,7 +2,7 @@ import { createContext, useContext, useSyncExternalStore } from 'react'
 import type { PublicConfiguration } from '../../domain/configuration'
 import type { Actor, CoachAdapter, Command } from './contracts'
 import type { CoachController } from './controller'
-import type { Access, SetupProof } from '../../domain/accounts'
+import type { Access, PasswordLink } from '../../domain/accounts'
 import type { DataResult } from './contracts'
 import type { createDataClient } from '../data/client'
 
@@ -21,7 +21,9 @@ export type Runtime = Readonly<{
   access: Access | undefined
   dataClient: ReturnType<typeof createDataClient>
   login: (email: string, password: string) => Promise<DataResult<Access>>
-  setupProof: SetupProof | undefined
+  passwordLink: PasswordLink | undefined
+  formDirty: boolean
+  setFormDirty: (dirty: boolean) => void
 }>
 export const RuntimeContext = createContext<Runtime | undefined>(undefined)
 export const useRuntime = () => {

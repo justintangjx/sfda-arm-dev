@@ -11,6 +11,9 @@ type NullableInput =
   | 'role_filter'
   | 'page_cursor'
   | 'status_filter'
+  | 'name_query'
+  | 'enabled_filter'
+  | 'target_profile_id'
 type Functions = Database['public']['Functions']
 type NullableArguments<Arguments> = {
   [Key in keyof Arguments]: Key extends NullableInput

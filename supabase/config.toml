@@ -35,10 +35,20 @@ enabled = false
 [auth]
 enabled = true
 site_url = "http://127.0.0.1:5173"
-additional_redirect_urls = ['http://127.0.0.1:5173/auth/setup\?operationId=*&generation=*&setupCapability=*']
+additional_redirect_urls = [
+  'http://127.0.0.1:5173/auth/setup\?operationId=*&generation=*&setupCapability=*',
+  'http://127.0.0.1:5173/auth/recovery\?operationId=*&revision=*&capability=*',
+]
+# Spec 0006 bounds an issued access token to 15 minutes; it is not instant revocation.
+jwt_expiry = 900
 enable_signup = false
 enable_anonymous_sign_ins = false
 minimum_password_length = 12
+
+[auth.rate_limit]
+# The initial small pilot email quota. It applies only with custom SMTP, so local capture is
+# unaffected; production records its own effective setting.
+email_sent = 60
 
 [auth.email]
 # The CLI maps this to email provider enablement. Global signup stays disabled.
@@ -50,7 +60,7 @@ subject = "Set your SFDA password"
 content_path = "./supabase/templates/invite.html"
 
 [auth.email.template.recovery]
-subject = "Set your SFDA password with a replacement link"
+subject = "Your SFDA password link"
 content_path = "./supabase/templates/recovery.html"
 
 [edge_runtime]

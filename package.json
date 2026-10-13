@@ -31,6 +31,7 @@
     "test:db": "node scripts/supabase-local.ts test",
     "test:auth": "node scripts/supabase-local.ts auth",
     "db:bootstrap": "node scripts/bootstrap-local.ts",
+    "operator:admin": "node scripts/operator-admin.ts",
     "db:restart": "node scripts/supabase-local.ts restart",
     "db:reset": "node scripts/supabase-local.ts reset",
     "verify": "node scripts/verify.ts"

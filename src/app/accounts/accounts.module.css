@@ -33,6 +33,35 @@
   border-block-start: 1px solid var(--separator);
   overflow-wrap: anywhere;
 }
+.sections {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  padding-block-end: var(--space-3);
+  border-block-end: 1px solid var(--separator);
+}
+.sections a {
+  font-weight: 600;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius);
+}
+.sections a[aria-current='page'] {
+  background: var(--surface);
+  text-decoration: underline;
+  text-underline-offset: 0.25em;
+}
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--space-3);
+  margin-block-end: var(--space-4);
+}
+.filters > div {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
 @media (max-width: 959px) {
   .columns {
     grid-template-columns: 1fr;

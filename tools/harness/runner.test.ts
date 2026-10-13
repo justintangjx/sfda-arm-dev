@@ -50,6 +50,7 @@ const fixtureRoot = async (exitCode: number) => {
     '0002-fresh-data-model-access-rules',
     '0003-verification-harness-eval-contract',
     '0005-first-real-coach-feedback-path',
+    '0006-account-roster-operations',
   ]) {
     await mkdir(join(target, 'docs/specs', name), { recursive: true })
     await cp(

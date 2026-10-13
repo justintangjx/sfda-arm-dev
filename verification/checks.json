@@ -69,6 +69,10 @@
         {
           "path": "docs/specs/0005-first-real-coach-feedback-path/index.md",
           "criteria": ["AC-1", "AC-4", "AC-6", "AC-9", "AC-10", "AC-12"]
+        },
+        {
+          "path": "docs/specs/0006-account-roster-operations/index.md",
+          "criteria": ["AC-9", "AC-11"]
         }
       ],
       "capabilities": ["foundation"],
@@ -180,6 +184,10 @@
         {
           "path": "docs/specs/0005-first-real-coach-feedback-path/index.md",
           "criteria": ["AC-9", "AC-10", "AC-11", "AC-12"]
+        },
+        {
+          "path": "docs/specs/0006-account-roster-operations/index.md",
+          "criteria": ["AC-4", "AC-11"]
         }
       ],
       "capabilities": ["preparation", "campaign"],
@@ -194,6 +202,20 @@
         {
           "path": "docs/specs/0005-first-real-coach-feedback-path/index.md",
           "criteria": ["AC-2", "AC-3", "AC-4", "AC-9", "AC-12", "AC-13"]
+        },
+        {
+          "path": "docs/specs/0006-account-roster-operations/index.md",
+          "criteria": [
+            "AC-1",
+            "AC-2",
+            "AC-3",
+            "AC-5",
+            "AC-6",
+            "AC-7",
+            "AC-8",
+            "AC-10",
+            "AC-11"
+          ]
         }
       ],
       "capabilities": ["preparation"],

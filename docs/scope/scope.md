@@ -189,13 +189,13 @@ Expand the thin admin path into adding coaches and players, activating accounts,
 
 **Done when:** admins can provision both account types without public registration or leaked passwords, users can log in with email and password, player accounts reach an agreed minimal account surface, duplicate and partial provisioning failures recover safely, and access removal follows the approved historical access rules.
 
-**Spec:** [0006](../specs/0006-account-roster-operations/index.md), design confirmed on 7 October 2026. Independent design critique was skipped at your request. Implementation remains unstarted and requires separate authorisation.
+**Spec:** [0006](../specs/0006-account-roster-operations/index.md), design confirmed on 7 October 2026. Independent design critique was skipped at your request. Code in `supabase/migrations/20261013*.sql`, `src/worker/recovery.ts`, `src/worker/password-links.ts`, `src/worker/release.ts`, `src/app/admin/` and `scripts/operator-admin.ts`. Built locally with your authorisation on 13 October 2026. Production controls, the operator run and readiness evidence remain open.
 
 * [x] Design account operations (spec): `/architect account and roster operations`
 * [ ] Build it: `/develop account and roster operations`
-  * [ ] Prove eligible local password recovery through private records, shared link state, captured mail, password completion and fresh login. AC-1, AC-3, AC-5, AC-7, AC-8, AC-11, AC-12.
-  * [ ] Add the account directory, authorised email detail and lookup, profile maintenance, safe progress and admin requested recovery. AC-1, AC-2, AC-3, AC-5, AC-6, AC-11, AC-12.
-  * [ ] Connect campaign membership maintenance with preserved history, pairing ownership and frozen roster restrictions. AC-3, AC-4, AC-11, AC-12.
+  * [x] Prove eligible local password recovery through private records, shared link state, captured mail, password completion and fresh login. AC-1, AC-3, AC-5, AC-7, AC-8, AC-11, AC-12.
+  * [x] Add the account directory, authorised email detail and lookup, profile maintenance, safe progress and admin requested recovery. AC-1, AC-2, AC-3, AC-5, AC-6, AC-11, AC-12.
+  * [x] Connect campaign membership maintenance with preserved history, pairing ownership and frozen roster restrictions. AC-3, AC-4, AC-11, AC-12.
   * [ ] Complete concurrency and failure checks, trusted administrator setup, production controls and readiness evidence. AC-1, AC-5, AC-6, AC-7, AC-8, AC-9, AC-10, AC-11, AC-12.
 * [ ] Verify it: `/check verify account and roster operations`
 * [ ] Test it: `/test account and roster operations`
