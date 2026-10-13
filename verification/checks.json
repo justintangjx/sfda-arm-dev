@@ -73,6 +73,10 @@
         {
           "path": "docs/specs/0006-account-roster-operations/index.md",
           "criteria": ["AC-9", "AC-11"]
+        },
+        {
+          "path": "docs/specs/0007-campaign-player-workspace/index.md",
+          "criteria": ["AC-4", "AC-5", "AC-8", "AC-9", "AC-10"]
         }
       ],
       "capabilities": ["foundation"],
@@ -97,6 +101,10 @@
             "AC-12",
             "AC-14"
           ]
+        },
+        {
+          "path": "docs/specs/0007-campaign-player-workspace/index.md",
+          "criteria": ["AC-12"]
         }
       ],
       "capabilities": ["foundation"],
@@ -111,6 +119,19 @@
         {
           "path": "docs/specs/0003-verification-harness-eval-contract/index.md",
           "criteria": ["AC-1", "AC-4", "AC-11", "AC-14"]
+        },
+        {
+          "path": "docs/specs/0007-campaign-player-workspace/index.md",
+          "criteria": [
+            "AC-1",
+            "AC-3",
+            "AC-4",
+            "AC-5",
+            "AC-7",
+            "AC-8",
+            "AC-9",
+            "AC-11"
+          ]
         }
       ],
       "capabilities": ["foundation"],
@@ -145,6 +166,20 @@
         {
           "path": "docs/specs/0005-first-real-coach-feedback-path/index.md",
           "criteria": ["AC-7", "AC-8", "AC-9", "AC-10", "AC-12"]
+        },
+        {
+          "path": "docs/specs/0007-campaign-player-workspace/index.md",
+          "criteria": [
+            "AC-1",
+            "AC-2",
+            "AC-3",
+            "AC-4",
+            "AC-5",
+            "AC-6",
+            "AC-7",
+            "AC-9",
+            "AC-10"
+          ]
         }
       ],
       "capabilities": ["preparation"],
@@ -241,6 +276,10 @@
             "AC-12",
             "AC-13"
           ]
+        },
+        {
+          "path": "docs/specs/0007-campaign-player-workspace/index.md",
+          "criteria": ["AC-1", "AC-5", "AC-6", "AC-10"]
         }
       ],
       "capabilities": ["preparation"],
@@ -255,6 +294,10 @@
         {
           "path": "docs/specs/0005-first-real-coach-feedback-path/index.md",
           "criteria": ["AC-13"]
+        },
+        {
+          "path": "docs/specs/0007-campaign-player-workspace/index.md",
+          "criteria": ["AC-11"]
         }
       ],
       "capabilities": ["preparation"],

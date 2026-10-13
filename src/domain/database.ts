@@ -14,6 +14,14 @@ type NullableInput =
   | 'name_query'
   | 'enabled_filter'
   | 'target_profile_id'
+  | 'query'
+  | 'stage'
+  | 'cursor'
+  | 'page_size'
+  | 'membership'
+  | 'drafts'
+  | 'observed_from'
+  | 'observed_to'
 type Functions = Database['public']['Functions']
 type NullableArguments<Arguments> = {
   [Key in keyof Arguments]: Key extends NullableInput

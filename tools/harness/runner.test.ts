@@ -51,6 +51,7 @@ const fixtureRoot = async (exitCode: number) => {
     '0003-verification-harness-eval-contract',
     '0005-first-real-coach-feedback-path',
     '0006-account-roster-operations',
+    '0007-campaign-player-workspace',
   ]) {
     await mkdir(join(target, 'docs/specs', name), { recursive: true })
     await cp(
@@ -115,6 +116,27 @@ const latestReport = async (target: string) => {
 }
 
 describe('compiled harness and real processes', () => {
+  it('reports workspace database mappings as missing when local execution is unavailable', async () => {
+    const { target, env } = await fixtureRoot(0)
+    const run = cli(target, env, [
+      '--profile',
+      'preparation',
+      '--checks',
+      'database_preparation',
+    ])
+    expect(run.status, run.stdout + run.stderr).toBe(0)
+    const report = await latestReport(target)
+    expect(report.results[0]).toMatchObject({
+      status: 'missing',
+      evidenceKind: 'local_database',
+      execution: { runtime: 'unavailable', databaseTarget: null },
+    })
+    expect(report.results[0]?.specs).toContainEqual({
+      path: 'docs/specs/0007-campaign-player-workspace/index.md',
+      criteria: expect.arrayContaining(['AC-2', 'AC-3', 'AC-6', 'AC-9']),
+    })
+    expect(report.releaseReady).toBe(false)
+  })
   it('runs a real child, writes a report and never confuses advisory success with readiness', async () => {
     const { target, env } = await fixtureRoot(0)
     const run = cli(target, env, [
@@ -390,6 +412,37 @@ describe('compiled harness and real processes', () => {
   })
 })
 describe('definition and argument boundaries', () => {
+  it('maps every workspace criterion while keeping fixture and live evidence separate', () => {
+    const path = 'docs/specs/0007-campaign-player-workspace/index.md'
+    for (const profile of ['preparation', 'campaign'] as const) {
+      const capabilities = selectedCapabilities(profile, [])
+      const checks = registry.checks.filter((check) =>
+        check.capabilities.some((capability) =>
+          capabilities.includes(capability),
+        ),
+      )
+      const criteria = new Set(
+        checks.flatMap((check) =>
+          check.specs
+            .filter((mapping) => mapping.path === path)
+            .flatMap((mapping) => mapping.criteria),
+        ),
+      )
+      expect([...criteria].sort()).toEqual(
+        Array.from({ length: 12 }, (_, index) => `AC-${index + 1}`).sort(),
+      )
+      for (const [id, evidenceKind] of [
+        ['browser', 'fixture_browser'],
+        ['database_preparation', 'local_database'],
+        ['browser_preparation', 'local_database'],
+        ['preparation_accessibility', 'human'],
+      ] as const) {
+        const check = checks.find((item) => item.id === id)
+        expect(check?.evidenceKind).toBe(evidenceKind)
+        expect(check?.specs.some((mapping) => mapping.path === path)).toBe(true)
+      }
+    }
+  })
   it('rejects unknown fields, duplicate IDs, unsupported versions and evidence relabeling', () => {
     expect(() => validateRegistry({ ...registry, surprise: true })).toThrow()
     expect(() => validateRegistry({ ...registry, schemaVersion: 2 })).toThrow()

@@ -7,14 +7,18 @@ import { bindingFor, kindForStage, singaporeToday, writable } from './editor'
 import type {
   Actor,
   Campaign,
+  CampaignContext,
   CoachAdapter,
   Command,
   Commit,
   DataResult,
   Draft,
   Entry,
+  HistorySummary,
   Page,
   Player,
+  PlayerContext,
+  RosterNeighbors,
   Workspace,
 } from './contracts'
 
@@ -186,60 +190,193 @@ export const createFixtureAdapter = (
     getAccess: async (actor) =>
       access(actor) ? success(sampleActor) : failure('FORBIDDEN'),
     signOut: async () => {},
-    loadCampaigns: async (actor, cursor) => {
+    loadCampaigns: async (actor, discovery, cursor) => {
       await wait()
-      return access(actor)
-        ? success(pageOf(campaigns, cursor))
-        : failure('FORBIDDEN')
+      if (!access(actor)) return failure('FORBIDDEN')
+      const filtered = campaigns.filter((campaign) => {
+        const current = campaign.isActive && campaign.stage !== 'closed'
+        const modeOk = discovery.mode === 'current' ? current : !current
+        const stageOk = !discovery.stage || campaign.stage === discovery.stage
+        const text = discovery.text?.trim().toLowerCase()
+        const textOk =
+          !text ||
+          campaign.name.toLowerCase().includes(text) ||
+          campaign.team.toLowerCase().includes(text) ||
+          campaign.competition.toLowerCase().includes(text)
+        return modeOk && stageOk && textOk
+      })
+      return success(pageOf(filtered, cursor))
     },
-    loadCampaign: async (actor, campaignId) => {
+    loadCampaignContext: async (actor, campaignId) => {
       await wait()
       const campaign = campaigns.find((item) => item.id === campaignId)
-      return access(actor) && campaign
-        ? success(campaign)
-        : failure('NOT_FOUND')
+      if (!access(actor) || !campaign) return failure('NOT_FOUND')
+      const value: CampaignContext = {
+        campaign,
+        requirements: {
+          scope: 'self',
+          frozen: campaign.frozen,
+          frozenRequiredCount: campaign.frozen ? 1 : null,
+        },
+        writeKinds: ['preparation'],
+        correctionSupport: 'unavailable',
+      }
+      return success(value)
     },
-    loadRoster: async (actor, campaignId, cursor) => {
+    loadRoster: async (actor, campaignId, discovery, cursor) => {
       await wait()
-      return access(actor) && campaigns.some((item) => item.id === campaignId)
-        ? success(
-            pageOf(
-              players.map(
-                (player) =>
-                  workspaceFor(actor, campaignId, player.id, undefined)!.player,
-              ),
-              cursor,
-            ),
+      if (!access(actor) || !campaigns.some((item) => item.id === campaignId))
+        return failure('NOT_FOUND')
+      const roster = players
+        .map(
+          (player) =>
+            workspaceFor(actor, campaignId, player.id, undefined)!.player,
+        )
+        .filter((player) => {
+          const membershipOk =
+            discovery.membership === 'all' ||
+            (discovery.membership === 'active' && player.isActive) ||
+            (discovery.membership === 'withdrawn' && !player.isActive)
+          const text = discovery.text?.trim().toLowerCase()
+          const textOk =
+            !text ||
+            player.displayName.toLowerCase().includes(text) ||
+            player.id.startsWith(text)
+          const draftKey = keyFor(campaignId, player.id, 'preparation')
+          const hasDraft = Boolean(drafts[draftKey])
+          const draftOk = discovery.drafts === 'all' || hasDraft
+          return membershipOk && textOk && draftOk
+        })
+        .map((player) => ({
+          ...player,
+          hasSavedPreparationDraft: Boolean(
+            drafts[keyFor(campaignId, player.id, 'preparation')],
+          ),
+          preparationSubmissionCount: String(
+            (entries[`${campaignId}/${player.id}`] ?? []).filter(
+              (entry) => entry.kind === 'preparation',
+            ).length,
+          ),
+          latestPreparationSubmittedAt: (
+            entries[`${campaignId}/${player.id}`] ?? []
+          ).find((entry) => entry.kind === 'preparation')?.submittedAt,
+        }))
+      return success(pageOf(roster, cursor))
+    },
+    loadPlayerContext: async (actor, campaignId, playerId, discovery) => {
+      await wait()
+      const workspace = workspaceFor(actor, campaignId, playerId, undefined)
+      if (!workspace) return failure('NOT_FOUND')
+      const player = workspace.player
+      const membershipOk =
+        discovery.membership === 'all' ||
+        (discovery.membership === 'active' && player.isActive) ||
+        (discovery.membership === 'withdrawn' && !player.isActive)
+      const text = discovery.text?.trim().toLowerCase()
+      const textOk =
+        !text ||
+        player.displayName.toLowerCase().includes(text) ||
+        player.id.startsWith(text)
+      const hasDraft = Boolean(
+        drafts[keyFor(campaignId, playerId, 'preparation')],
+      )
+      const draftOk = discovery.drafts === 'all' || hasDraft
+      const filterMatch = membershipOk && textOk && draftOk
+      const value: PlayerContext = {
+        context: {
+          campaign: workspace.campaign,
+          requirements: {
+            scope: 'self',
+            frozen: workspace.campaign.frozen,
+            frozenRequiredCount: workspace.campaign.frozen ? 1 : null,
+          },
+          writeKinds: ['preparation'],
+          correctionSupport: 'unavailable',
+        },
+        player: workspace.player,
+        filterMatch: Boolean(filterMatch),
+        preparationWritable: writable(workspace, 'preparation'),
+        draft: workspace.draft,
+      }
+      return success(value)
+    },
+    loadRosterNeighbors: async (actor, campaignId, playerId, discovery) => {
+      await wait()
+      if (!access(actor) || !campaigns.some((item) => item.id === campaignId))
+        return failure('NOT_FOUND')
+      const rosterRows = players
+        .map(
+          (item) => workspaceFor(actor, campaignId, item.id, undefined)!.player,
+        )
+        .filter((item) => {
+          const membershipOk =
+            discovery.membership === 'all' ||
+            (discovery.membership === 'active' && item.isActive) ||
+            (discovery.membership === 'withdrawn' && !item.isActive)
+          const text = discovery.text?.trim().toLowerCase()
+          const textOk =
+            !text ||
+            item.displayName.toLowerCase().includes(text) ||
+            item.id.startsWith(text)
+          const hasDraft = Boolean(
+            drafts[keyFor(campaignId, item.id, 'preparation')],
           )
-        : failure('NOT_FOUND')
+          const draftOk = discovery.drafts === 'all' || hasDraft
+          return membershipOk && textOk && draftOk
+        })
+      const ids = rosterRows.map((row) => row.id)
+      const index = ids.indexOf(playerId)
+      const at = (id: string) => rosterRows.find((row) => row.id === id)!
+      const value: RosterNeighbors = {
+        queryFingerprint: 'fixture',
+        selectedMatch: index >= 0,
+        previous:
+          index > 0
+            ? {
+                playerId: ids[index - 1]!,
+                displayName: at(ids[index - 1]!).displayName,
+                membershipVersion: at(ids[index - 1]!).membershipVersion,
+              }
+            : undefined,
+        next:
+          index >= 0 && index < ids.length - 1
+            ? {
+                playerId: ids[index + 1]!,
+                displayName: at(ids[index + 1]!).displayName,
+                membershipVersion: at(ids[index + 1]!).membershipVersion,
+              }
+            : undefined,
+      }
+      return success(value)
     },
     loadWorkspace: async (actor, campaignId, playerId, kind) => {
       await wait()
       const workspace = workspaceFor(actor, campaignId, playerId, kind)
       return workspace ? success(workspace) : failure('NOT_FOUND')
     },
-    loadHistory: async (actor, campaignId, playerId, cursor) => {
+    loadHistory: async (actor, campaignId, playerId, _discovery, cursor) => {
       await wait()
-      return workspaceFor(actor, campaignId, playerId, undefined)
-        ? success(pageOf(entries[`${campaignId}/${playerId}`] ?? [], cursor))
-        : failure('NOT_FOUND')
+      if (!workspaceFor(actor, campaignId, playerId, undefined))
+        return failure('NOT_FOUND')
+      const summaries: HistorySummary[] = (
+        entries[`${campaignId}/${playerId}`] ?? []
+      ).map((entry) => ({
+        id: entry.id,
+        kind: entry.kind,
+        observedOn: entry.content.observedOn ?? '',
+        submittedAt: entry.submittedAt,
+        preview: (entry.content.observations ?? '').slice(0, 160),
+      }))
+      return success(pageOf(summaries, cursor))
     },
-    loadCompletion: async (actor, campaignId) => {
+    loadFeedbackEntry: async (actor, campaignId, playerId, feedbackId) => {
       await wait()
-      const campaign = campaigns.find((item) => item.id === campaignId)
-      if (!access(actor) || !campaign) return failure('NOT_FOUND')
-      const own = players.map(
-        (player) =>
-          workspaceFor(actor, campaignId, player.id, undefined)!.player
-            .obligation,
+      if (!workspaceFor(actor, campaignId, playerId, undefined))
+        return failure('NOT_FOUND')
+      const entry = (entries[`${campaignId}/${playerId}`] ?? []).find(
+        (item) => item.id === feedbackId,
       )
-      return success({
-        scope: 'self',
-        frozen: campaign.frozen,
-        submitted: own.filter((item) => item === 'submitted').length,
-        waived: own.filter((item) => item === 'waived').length,
-        outstanding: own.filter((item) => item === 'outstanding').length,
-      })
+      return entry ? success(entry) : failure('NOT_FOUND')
     },
     mutate: async (actor, command) => {
       await wait()

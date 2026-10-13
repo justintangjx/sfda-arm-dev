@@ -971,7 +971,7 @@ describe('real final lifecycle and retention (AC-1 through AC-16)', () => {
       'fingerprint',encode(sha256(convert_to(jsonb_build_object('fingerprintVersion',1,'action','probe','input',jsonb_build_object('alpha',1,'nullable',null))::text,'UTF8')),'hex'),
       'rlsTables',(select count(*) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='r' and c.relrowsecurity),
       'cascadingForeignKeys',(select count(*) from pg_constraint c join pg_namespace n on n.oid=c.connamespace where n.nspname='public' and c.contype='f' and c.confdeltype<>'r'),
-      'unsafeFunctions',(select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and (not p.prosecdef or not p.proconfig @> array['search_path=""'] or has_function_privilege('anon',p.oid,'execute'))),
+      'unsafeFunctions',(select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and (p.prosecdef = (p.proname = any(array['list_coach_campaigns','get_coach_campaign_context','list_coach_roster','get_coach_player_context','get_coach_roster_neighbors','list_coach_feedback_history','get_coach_feedback_entry'])) or not p.proconfig @> array['search_path=""'] or has_function_privilege('anon',p.oid,'execute'))),
       'historyInvokesCaller',(select reloptions @> array['security_invoker=true'] from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relname='feedback_history')
     );`),
     )

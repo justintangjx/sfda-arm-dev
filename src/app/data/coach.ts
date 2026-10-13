@@ -3,23 +3,32 @@ import type { ApplicationDatabase } from '../../domain/database.ts'
 import { isUuid, readAccess, record } from '../../domain/accounts.ts'
 import {
   validateFeedbackText,
+  type FeedbackKind,
   type FeedbackText,
 } from '../../domain/feedback.ts'
 import type {
   Actor,
-  Campaign,
+  CampaignContext,
   CoachAdapter,
   Command,
   Commit,
-  Correction,
   DataResult,
   Draft,
-  Entry,
-  Page,
-  Player,
+  HistorySummary,
+  PlayerContext,
+  RosterDiscoveryQuery,
+  RosterNeighbors,
   Workspace,
 } from '../coach/contracts.ts'
+import { defaultRosterDiscovery } from '../coach/contracts.ts'
 import { executeMutation, type DataErrorCode } from './mutations.ts'
+import {
+  parseCampaignRow,
+  parseListEnvelope,
+  parsePlayerRow,
+  parseStage,
+  readRpcError,
+} from './coachList.ts'
 
 type Client = SupabaseClient<ApplicationDatabase>
 const ok = <T>(value: T): DataResult<T> => ({ ok: true, value })
@@ -27,21 +36,7 @@ const failure = (
   code: DataErrorCode,
   requestId: string = crypto.randomUUID(),
 ): DataResult<never> => ({ ok: false, code, requestId })
-const readError = (error: { code?: string; message?: string } | null) =>
-  error
-    ? failure(
-        error.code === ''
-          ? 'NETWORK_ERROR'
-          : [
-                'FORBIDDEN',
-                'AUTH_REQUIRED',
-                'NOT_FOUND',
-                'INVALID_INPUT',
-              ].includes(error.message ?? '')
-            ? (error.message as DataErrorCode)
-            : 'DATABASE_ERROR',
-      )
-    : undefined
+const readError = readRpcError
 const safe = <T>(work: () => Promise<DataResult<T>>) =>
   work().catch(() => failure('NETWORK_ERROR'))
 const text = (value: unknown): FeedbackText | undefined => {
@@ -52,8 +47,8 @@ const content = (row: Record<string, unknown>) =>
   text({
     observations: row.observations,
     strengths: row.strengths,
-    developmentFocus: row.development_focus,
-    observedOn: row.observed_on,
+    developmentFocus: row.development_focus ?? row.developmentFocus,
+    observedOn: row.observed_on ?? row.observedOn,
   })
 const actorFrom = (value: unknown): Actor | undefined => {
   const access = readAccess(value)
@@ -65,85 +60,6 @@ const actorFrom = (value: unknown): Actor | undefined => {
       }
     : undefined
 }
-const decodeCursor = (cursor: string | undefined) => {
-  if (!cursor) return undefined
-  try {
-    const value = record(JSON.parse(atob(cursor)))
-    return value &&
-      isUuid(value.id) &&
-      typeof value.at === 'string' &&
-      /^\d{4}-\d{2}-\d{2}T[\d:.+-]+Z?$/.test(value.at) &&
-      Number.isFinite(Date.parse(value.at))
-      ? { id: value.id, at: value.at }
-      : null
-  } catch {
-    return null
-  }
-}
-const page = <T>(
-  rows: readonly T[],
-  last: { id: string; at: string } | undefined,
-): Page<T> => ({
-  rows: rows.slice(0, 20),
-  nextCursor: rows.length > 20 && last ? btoa(JSON.stringify(last)) : undefined,
-})
-const campaignFrom = (value: unknown): Campaign | undefined => {
-  const row = record(value)
-  const competition = record(row?.competition)
-  const memberships = row?.membership
-  const member = Array.isArray(memberships)
-    ? record(memberships[0])
-    : record(memberships)
-  if (
-    !row ||
-    !isUuid(row.id) ||
-    typeof row.name !== 'string' ||
-    typeof row.team_name !== 'string' ||
-    typeof competition?.name !== 'string' ||
-    ![
-      'setup',
-      'preparation',
-      'competition',
-      'final_feedback',
-      'closed',
-    ].includes(String(row.stage)) ||
-    typeof row.version !== 'number' ||
-    typeof member?.version !== 'number' ||
-    typeof member.is_active !== 'boolean'
-  )
-    return undefined
-  return {
-    id: row.id,
-    name: row.name,
-    team: row.team_name,
-    competition: competition.name,
-    stage: row.stage as Campaign['stage'],
-    version: row.version,
-    membershipVersion: member.version,
-    isActive: member.is_active,
-    frozen: row.requirements_frozen_at !== null,
-  }
-}
-const playerFrom = (value: unknown): Player | undefined => {
-  const row = record(value)
-  const profile = record(row?.profile)
-  if (
-    !row ||
-    !isUuid(row.player_id) ||
-    typeof profile?.display_name !== 'string' ||
-    typeof row.is_active !== 'boolean' ||
-    typeof row.version !== 'number'
-  )
-    return undefined
-  return {
-    id: row.player_id,
-    displayName: profile.display_name,
-    isActive: row.is_active,
-    membershipVersion: row.version,
-    obligation: 'none',
-    waiverReason: undefined,
-  }
-}
 const draftFrom = (value: unknown): Draft | undefined => {
   const row = record(value)
   const body = row ? content(row) : undefined
@@ -151,6 +67,151 @@ const draftFrom = (value: unknown): Draft | undefined => {
     ? { id: row.id, version: row.version, content: body }
     : undefined
 }
+const parseRequirements = (value: unknown) => {
+  const row = record(value)
+  if (
+    !row ||
+    row.scope !== 'self' ||
+    typeof row.frozen !== 'boolean' ||
+    (row.frozenRequiredCount !== null &&
+      typeof row.frozenRequiredCount !== 'number')
+  )
+    return undefined
+  return {
+    scope: 'self' as const,
+    frozen: row.frozen,
+    frozenRequiredCount:
+      row.frozenRequiredCount === null
+        ? null
+        : (row.frozenRequiredCount as number),
+  }
+}
+const parseCampaignContext = (value: unknown): CampaignContext | undefined => {
+  const row = record(value)
+  const requirements = parseRequirements(row?.requirements)
+  const stage = parseStage(row?.stage)
+  if (
+    !row ||
+    !requirements ||
+    !stage ||
+    !isUuid(row.campaignId) ||
+    typeof row.name !== 'string' ||
+    typeof row.teamName !== 'string' ||
+    typeof row.competitionName !== 'string' ||
+    typeof row.version !== 'number' ||
+    typeof row.membershipVersion !== 'number' ||
+    typeof row.membershipActive !== 'boolean' ||
+    row.correctionSupport !== 'unavailable' ||
+    !Array.isArray(row.writeKinds) ||
+    row.writeKinds.length !== 1 ||
+    row.writeKinds[0] !== 'preparation'
+  )
+    return undefined
+  return {
+    campaign: {
+      id: row.campaignId,
+      name: row.name,
+      team: row.teamName,
+      competition: row.competitionName,
+      stage,
+      version: row.version,
+      membershipVersion: row.membershipVersion,
+      isActive: row.membershipActive,
+      frozen: requirements.frozen,
+    },
+    requirements,
+    writeKinds: ['preparation'],
+    correctionSupport: 'unavailable',
+  }
+}
+const parsePlayerContext = (value: unknown): PlayerContext | undefined => {
+  const row = record(value)
+  const context = parseCampaignContext(row?.campaignContext ?? row)
+  if (
+    !row ||
+    !context ||
+    !isUuid(row.playerId) ||
+    typeof row.displayName !== 'string' ||
+    typeof row.membershipActive !== 'boolean' ||
+    typeof row.membershipVersion !== 'number' ||
+    typeof row.filterMatch !== 'boolean' ||
+    typeof row.preparationWritable !== 'boolean'
+  )
+    return undefined
+  const draft =
+    row.draft === null || row.draft === undefined
+      ? undefined
+      : draftFrom(row.draft)
+  if (row.draft !== null && row.draft !== undefined && !draft) return undefined
+  return {
+    context,
+    player: {
+      id: row.playerId,
+      displayName: row.displayName,
+      isActive: row.membershipActive,
+      membershipVersion: row.membershipVersion,
+      obligation: 'none',
+      waiverReason: undefined,
+    },
+    filterMatch: row.filterMatch,
+    preparationWritable: row.preparationWritable,
+    draft,
+  }
+}
+const parseHistorySummary = (value: unknown): HistorySummary | undefined => {
+  const row = record(value)
+  const kind = row?.kind
+  const observedOn =
+    typeof row?.observedOn === 'string'
+      ? row.observedOn
+      : row?.observedOn instanceof String
+        ? String(row.observedOn)
+        : typeof row?.observedOn === 'object' && row?.observedOn !== null
+          ? String(row.observedOn)
+          : undefined
+  if (
+    !row ||
+    !isUuid(row.feedbackId) ||
+    (kind !== 'preparation' && kind !== 'final') ||
+    !observedOn ||
+    typeof row.submittedAt !== 'string' ||
+    typeof row.preview !== 'string'
+  )
+    return undefined
+  return {
+    id: row.feedbackId,
+    kind,
+    observedOn,
+    submittedAt: row.submittedAt,
+    preview: row.preview,
+  }
+}
+const parseNeighbor = (value: unknown) => {
+  const row = record(value)
+  if (
+    !row ||
+    !isUuid(row.playerId) ||
+    typeof row.displayName !== 'string' ||
+    typeof row.membershipVersion !== 'number'
+  )
+    return undefined
+  return {
+    playerId: row.playerId,
+    displayName: row.displayName,
+    membershipVersion: row.membershipVersion,
+  }
+}
+const rosterArgs = (discovery: RosterDiscoveryQuery) => ({
+  query: discovery.text?.trim() || null,
+  membership: discovery.membership,
+  drafts: discovery.drafts,
+})
+const toWorkspace = (value: PlayerContext): Workspace => ({
+  campaign: value.context.campaign,
+  player: value.player,
+  draft: value.draft,
+  finalEntry: undefined,
+})
 
 export const createLiveCoachAdapter = (client: Client): CoachAdapter => {
   const getAccess = (actor: Actor) =>
@@ -161,96 +222,6 @@ export const createLiveCoachAdapter = (client: Client): CoachAdapter => {
       const current = actorFrom(result.data)
       return current?.id === actor.id ? ok(current) : failure('FORBIDDEN')
     })
-  const campaigns = () =>
-    client
-      .from('campaigns')
-      .select(
-        'id,name,team_name,stage,version,created_at,requirements_frozen_at,competition:competitions(name),membership:campaign_coaches!inner(coach_id,is_active,version)',
-      )
-  const roster = () =>
-    client
-      .from('campaign_players')
-      .select(
-        'player_id,is_active,version,created_at,profile:profiles(id,display_name)',
-      )
-  const loadCampaign = (
-    actor: Actor,
-    campaignId: string,
-    signal: AbortSignal,
-  ): Promise<DataResult<Campaign>> =>
-    safe(async () => {
-      const access = await getAccess(actor)
-      if (!access.ok) return access
-      const result = await campaigns()
-        .eq('id', campaignId)
-        .eq('membership.coach_id', actor.id)
-        .abortSignal(signal)
-        .maybeSingle()
-      const error = readError(result.error)
-      if (error) return error
-      const value = campaignFrom(result.data)
-      return value ? ok(value) : failure('NOT_FOUND')
-    })
-  const corrections = async (
-    entryId: string,
-    signal: AbortSignal,
-  ): Promise<DataResult<readonly Correction[]>> => {
-    const items: Correction[] = []
-    let revision = 0
-    while (!signal.aborted) {
-      const result = await client
-        .from('feedback_corrections')
-        .select(
-          'id,revision,observations,strengths,development_focus,observed_on,reason,created_at',
-        )
-        .eq('feedback_id', entryId)
-        .gt('revision', revision)
-        .order('revision')
-        .limit(100)
-        .abortSignal(signal)
-      const error = readError(result.error)
-      if (error) return error
-      for (const item of result.data ?? []) {
-        const body = content(item)
-        if (!body) return failure('INVALID_RESPONSE')
-        items.push({
-          id: item.id,
-          revision: item.revision,
-          content: body,
-          reason: item.reason,
-          correctedAt: item.created_at,
-        })
-        revision = item.revision
-      }
-      if ((result.data?.length ?? 0) < 100) return ok(items)
-    }
-    return failure('NETWORK_ERROR')
-  }
-  const entryFrom = async (
-    value: unknown,
-    signal: AbortSignal,
-  ): Promise<DataResult<Entry>> => {
-    const row = record(value)
-    const body = text(row?.original)
-    if (
-      !row ||
-      !isUuid(row.id) ||
-      !body ||
-      typeof row.submitted_at !== 'string' ||
-      (row.kind !== 'preparation' && row.kind !== 'final')
-    )
-      return failure('INVALID_RESPONSE')
-    const changes = await corrections(row.id, signal)
-    return changes.ok
-      ? ok({
-          id: row.id,
-          kind: row.kind,
-          content: body,
-          submittedAt: row.submitted_at,
-          corrections: changes.value,
-        })
-      : changes
-  }
   const readCommit = async (
     command: Command,
     id: string | undefined,
@@ -274,61 +245,54 @@ export const createLiveCoachAdapter = (client: Client): CoachAdapter => {
         ? failure('INVALID_RESPONSE', command.mutationId)
         : ok({ type: 'draft', draft })
     }
-    const result = await client
-      .from('feedback_history')
-      .select('id,kind,original,submitted_at')
-      .eq('id', id)
-      .eq('coach_id', command.context.actorId)
-      .maybeSingle()
-    const error = readError(result.error)
-    if (error) return error
-    const entry = await entryFrom(result.data, new AbortController().signal)
-    return entry.ok ? ok({ type: 'submission', entry: entry.value }) : entry
+    const detail = await client.rpc('get_coach_feedback_entry', {
+      campaign_id: command.context.campaignId,
+      player_id: command.context.playerId,
+      feedback_id: id,
+    })
+    const detailError = readError(detail.error)
+    if (detailError) return detailError
+    const row = record(detail.data)
+    const body = row ? content(row) : undefined
+    if (
+      !row ||
+      !body ||
+      (row.kind !== 'preparation' && row.kind !== 'final') ||
+      typeof row.submittedAt !== 'string'
+    )
+      return failure('INVALID_RESPONSE', command.mutationId)
+    return ok({
+      type: 'submission',
+      entry: {
+        id: id,
+        kind: row.kind as FeedbackKind,
+        content: body,
+        submittedAt: row.submittedAt,
+        corrections: [],
+      },
+    })
   }
-  const loadWorkspace = (
+  const loadPlayerContext = (
     actor: Actor,
     campaignId: string,
     playerId: string,
-    kind: 'preparation' | 'final' | undefined,
+    discovery: RosterDiscoveryQuery,
     signal: AbortSignal,
-  ): Promise<DataResult<Workspace>> =>
+  ): Promise<DataResult<PlayerContext>> =>
     safe(async () => {
-      const campaign = await loadCampaign(actor, campaignId, signal)
-      if (!campaign.ok) return campaign
-      const result = await roster()
-        .eq('campaign_id', campaignId)
-        .eq('player_id', playerId)
+      const access = await getAccess(actor)
+      if (!access.ok) return access
+      const result = await client
+        .rpc('get_coach_player_context', {
+          campaign_id: campaignId,
+          player_id: playerId,
+          ...rosterArgs(discovery),
+        })
         .abortSignal(signal)
-        .maybeSingle()
       const error = readError(result.error)
       if (error) return error
-      const player = playerFrom(result.data)
-      if (!player) return failure('NOT_FOUND')
-      let draft: Draft | undefined
-      if (kind !== 'final') {
-        const saved = await client
-          .from('feedback_entries')
-          .select(
-            'id,version,observations,strengths,development_focus,observed_on',
-          )
-          .eq('campaign_id', campaignId)
-          .eq('player_id', playerId)
-          .eq('coach_id', actor.id)
-          .eq('kind', 'preparation')
-          .eq('status', 'draft')
-          .abortSignal(signal)
-          .maybeSingle()
-        const draftError = readError(saved.error)
-        if (draftError) return draftError
-        draft = saved.data ? draftFrom(saved.data) : undefined
-        if (saved.data && !draft) return failure('INVALID_RESPONSE')
-      }
-      return ok({
-        campaign: campaign.value,
-        player,
-        draft,
-        finalEntry: undefined,
-      })
+      const value = parsePlayerContext(result.data)
+      return value ? ok(value) : failure('INVALID_RESPONSE')
     })
   return {
     evidence: 'live',
@@ -344,125 +308,161 @@ export const createLiveCoachAdapter = (client: Client): CoachAdapter => {
     signOut: async () => {
       await client.auth.signOut({ scope: 'local' })
     },
-    loadCampaign,
-    loadCampaigns: (actor, cursor, signal) =>
-      safe(async () => {
-        const access = await getAccess(actor)
-        if (!access.ok) return access
-        const after = decodeCursor(cursor)
-        if (after === null) return failure('INVALID_INPUT')
-        let query = campaigns()
-          .eq('membership.coach_id', actor.id)
-          .order('created_at')
-          .order('id')
-          .limit(21)
-        if (after)
-          query = query.or(
-            `created_at.gt.${after.at},and(created_at.eq.${after.at},id.gt.${after.id})`,
-          )
-        const result = await query.abortSignal(signal)
-        const error = readError(result.error)
-        if (error) return error
-        const mapped = (result.data ?? []).map(campaignFrom)
-        if (mapped.some((item) => !item)) return failure('INVALID_RESPONSE')
-        const last = result.data?.[19]
-        return ok(
-          page(
-            mapped as Campaign[],
-            last ? { id: last.id, at: last.created_at } : undefined,
-          ),
-        )
-      }),
-    loadRoster: (actor, campaignId, cursor, signal) =>
-      safe(async () => {
-        const campaign = await loadCampaign(actor, campaignId, signal)
-        if (!campaign.ok) return campaign
-        const after = decodeCursor(cursor)
-        if (after === null) return failure('INVALID_INPUT')
-        let query = roster()
-          .eq('campaign_id', campaignId)
-          .order('created_at')
-          .order('player_id')
-          .limit(21)
-        if (after)
-          query = query.or(
-            `created_at.gt.${after.at},and(created_at.eq.${after.at},player_id.gt.${after.id})`,
-          )
-        const result = await query.abortSignal(signal)
-        const error = readError(result.error)
-        if (error) return error
-        const mapped = (result.data ?? []).map(playerFrom)
-        if (mapped.some((item) => !item)) return failure('INVALID_RESPONSE')
-        const last = result.data?.[19]
-        return ok(
-          page(
-            mapped as Player[],
-            last ? { id: last.player_id, at: last.created_at } : undefined,
-          ),
-        )
-      }),
-    loadWorkspace,
-    loadHistory: (actor, campaignId, playerId, cursor, signal) =>
-      safe(async () => {
-        const access = await getAccess(actor)
-        if (!access.ok) return access
-        const after = decodeCursor(cursor)
-        if (after === null) return failure('INVALID_INPUT')
-        let query = client
-          .from('feedback_history')
-          .select('id,kind,original,submitted_at')
-          .eq('campaign_id', campaignId)
-          .eq('player_id', playerId)
-          .eq('coach_id', actor.id)
-          .order('submitted_at', { ascending: false })
-          .order('id', { ascending: false })
-          .limit(21)
-        if (after)
-          query = query.or(
-            `submitted_at.lt.${after.at},and(submitted_at.eq.${after.at},id.lt.${after.id})`,
-          )
-        const result = await query.abortSignal(signal)
-        const error = readError(result.error)
-        if (error) return error
-        const entries: Entry[] = []
-        for (const item of result.data ?? []) {
-          const parsed = await entryFrom(item, signal)
-          if (!parsed.ok) return parsed
-          entries.push(parsed.value)
-        }
-        const last = result.data?.[19]
-        return ok(
-          page(
-            entries,
-            last?.id && last.submitted_at
-              ? { id: last.id, at: last.submitted_at }
-              : undefined,
-          ),
-        )
-      }),
-    loadCompletion: (actor, campaignId, signal) =>
+    loadCampaignContext: (actor, campaignId, signal) =>
       safe(async () => {
         const access = await getAccess(actor)
         if (!access.ok) return access
         const result = await client
-          .rpc('get_campaign_completion', { campaign_id: campaignId })
+          .rpc('get_coach_campaign_context', { campaign_id: campaignId })
+          .abortSignal(signal)
+        const error = readError(result.error)
+        if (error) return error
+        const value = parseCampaignContext(result.data)
+        return value ? ok(value) : failure('INVALID_RESPONSE')
+      }),
+    loadCampaigns: (actor, discovery, cursor, signal) =>
+      safe(async () => {
+        const access = await getAccess(actor)
+        if (!access.ok) return access
+        const result = await client
+          .rpc('list_coach_campaigns', {
+            mode: discovery.mode,
+            query: discovery.text?.trim() || null,
+            stage: discovery.stage ?? null,
+            cursor: cursor ?? null,
+            page_size: 20,
+          })
+          .abortSignal(signal)
+        const error = readError(result.error)
+        if (error) return error
+        const page = parseListEnvelope(result.data, (item) => {
+          const row = parseCampaignRow(item)
+          return row
+            ? {
+                ...row,
+                frozen: false,
+              }
+            : undefined
+        })
+        return page
+      }),
+    loadRoster: (actor, campaignId, discovery, cursor, signal) =>
+      safe(async () => {
+        const access = await getAccess(actor)
+        if (!access.ok) return access
+        const result = await client
+          .rpc('list_coach_roster', {
+            campaign_id: campaignId,
+            ...rosterArgs(discovery),
+            cursor: cursor ?? null,
+            page_size: 20,
+          })
+          .abortSignal(signal)
+        const error = readError(result.error)
+        if (error) return error
+        return parseListEnvelope(result.data, parsePlayerRow)
+      }),
+    loadPlayerContext,
+    loadRosterNeighbors: (actor, campaignId, playerId, discovery, signal) =>
+      safe(async () => {
+        const access = await getAccess(actor)
+        if (!access.ok) return access
+        const result = await client
+          .rpc('get_coach_roster_neighbors', {
+            campaign_id: campaignId,
+            player_id: playerId,
+            ...rosterArgs(discovery),
+          })
           .abortSignal(signal)
         const error = readError(result.error)
         if (error) return error
         const row = record(result.data)
-        return row?.scope === 'self' &&
-          typeof row.frozen === 'boolean' &&
-          typeof row.submitted === 'number' &&
-          typeof row.waived === 'number' &&
-          typeof row.outstanding === 'number'
-          ? ok({
-              scope: 'self',
-              frozen: row.frozen,
-              submitted: row.submitted,
-              waived: row.waived,
-              outstanding: row.outstanding,
-            })
-          : failure('INVALID_RESPONSE')
+        if (
+          !row ||
+          typeof row.queryFingerprint !== 'string' ||
+          typeof row.selectedMatch !== 'boolean'
+        )
+          return failure('INVALID_RESPONSE')
+        const previous =
+          row.previous === null || row.previous === undefined
+            ? undefined
+            : parseNeighbor(row.previous)
+        const next =
+          row.next === null || row.next === undefined
+            ? undefined
+            : parseNeighbor(row.next)
+        if (
+          (row.previous !== null && row.previous !== undefined && !previous) ||
+          (row.next !== null && row.next !== undefined && !next)
+        )
+          return failure('INVALID_RESPONSE')
+        const value: RosterNeighbors = {
+          queryFingerprint: row.queryFingerprint,
+          selectedMatch: row.selectedMatch,
+          previous,
+          next,
+        }
+        return ok(value)
+      }),
+    loadWorkspace: (actor, campaignId, playerId, _kind, signal) =>
+      safe(async () => {
+        const context = await loadPlayerContext(
+          actor,
+          campaignId,
+          playerId,
+          defaultRosterDiscovery,
+          signal,
+        )
+        return context.ok ? ok(toWorkspace(context.value)) : context
+      }),
+    loadHistory: (actor, campaignId, playerId, discovery, cursor, signal) =>
+      safe(async () => {
+        const access = await getAccess(actor)
+        if (!access.ok) return access
+        const result = await client
+          .rpc('list_coach_feedback_history', {
+            campaign_id: campaignId,
+            player_id: playerId,
+            observed_from: discovery.observedFrom?.trim() || null,
+            observed_to: discovery.observedTo?.trim() || null,
+            cursor: cursor ?? null,
+            page_size: 20,
+          })
+          .abortSignal(signal)
+        const error = readError(result.error)
+        if (error) return error
+        return parseListEnvelope(result.data, parseHistorySummary)
+      }),
+    loadFeedbackEntry: (actor, campaignId, playerId, feedbackId, signal) =>
+      safe(async () => {
+        const access = await getAccess(actor)
+        if (!access.ok) return access
+        const result = await client
+          .rpc('get_coach_feedback_entry', {
+            campaign_id: campaignId,
+            player_id: playerId,
+            feedback_id: feedbackId,
+          })
+          .abortSignal(signal)
+        const error = readError(result.error)
+        if (error) return error
+        const row = record(result.data)
+        const body = row ? content(row) : undefined
+        if (
+          !row ||
+          !isUuid(row.feedbackId) ||
+          !body ||
+          (row.kind !== 'preparation' && row.kind !== 'final') ||
+          typeof row.submittedAt !== 'string'
+        )
+          return failure('INVALID_RESPONSE')
+        return ok({
+          id: row.feedbackId,
+          kind: row.kind,
+          content: body,
+          submittedAt: row.submittedAt,
+          corrections: [],
+        })
       }),
     mutate: (actor, command) =>
       safe(async () => {

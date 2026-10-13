@@ -359,7 +359,11 @@ export const executeCheck = async (
         '--config',
         config,
         ...(check.adapterId === 'database_preparation'
-          ? ['supabase/tests/preparation.test.ts']
+          ? [
+              'supabase/tests/preparation.test.ts',
+              'supabase/tests/coach-workspace.test.ts',
+              'supabase/tests/coach-workspace-regression.test.ts',
+            ]
           : check.adapterId === 'database_accounts'
             ? [
                 'supabase/tests/account-setup.test.ts',

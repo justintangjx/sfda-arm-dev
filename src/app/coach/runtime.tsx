@@ -1,4 +1,10 @@
-import { createContext, useContext, useSyncExternalStore } from 'react'
+import {
+  createContext,
+  useContext,
+  useSyncExternalStore,
+  type MutableRefObject,
+} from 'react'
+import type { PlayerNavigationGate } from './navigation.ts'
 import type { PublicConfiguration } from '../../domain/configuration'
 import type { Actor, CoachAdapter, Command } from './contracts'
 import type { CoachController } from './controller'
@@ -24,6 +30,7 @@ export type Runtime = Readonly<{
   passwordLink: PasswordLink | undefined
   formDirty: boolean
   setFormDirty: (dirty: boolean) => void
+  playerNavigationGate: MutableRefObject<PlayerNavigationGate | undefined>
 }>
 export const RuntimeContext = createContext<Runtime | undefined>(undefined)
 export const useRuntime = () => {

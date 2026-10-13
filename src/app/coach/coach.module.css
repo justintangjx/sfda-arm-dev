@@ -347,6 +347,20 @@
     display: none;
   }
 }
+.filters {
+  display: grid;
+  gap: var(--space-3);
+  margin-block: var(--space-4);
+}
+.filterRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+}
+.selectedOutsideList {
+  font-weight: 650;
+}
 @media (max-width: 480px) {
   .container,
   .headerInner {

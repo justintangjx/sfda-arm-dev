@@ -210,7 +210,7 @@ Expand the first path to assigned campaign lists, player rosters, player feedbac
 
 **Done when:** coaches can find their assigned players, create unlimited distinct preparation observations, resume editable drafts, read authorised history and see the current stage and their frozen final assessment requirement count without duplicate submissions from retries. Full final completion remains in feature 10 (basis: your confirmed 0007 boundary).
 
-**Spec:** [0007](../specs/0007-campaign-player-workspace/index.md), design confirmed on 8 October 2026 after an independent critique by another model and your approved navigation fix. Implementation remains unstarted and requires separate authorisation.
+**Spec:** [0007](../specs/0007-campaign-player-workspace/index.md), design confirmed on 8 October 2026 after an independent critique by another model and your approved navigation fix. Implementation is in progress on branch `feature/007-campaign-and-player-workspace` with caller-scoped SQL reads, live adapter wiring and expanded coach UI.
 
 * [x] Design the workspace (spec): `/architect campaign and player workspace`
 * [ ] Build it: `/develop campaign and player workspace`

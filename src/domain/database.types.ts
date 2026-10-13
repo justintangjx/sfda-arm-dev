@@ -379,6 +379,18 @@ isOneToOne: false
 "get_campaign_completion":
 { Args: { "campaign_id": string }; Returns: Json
                            },
+"get_coach_campaign_context":
+{ Args: { "campaign_id": string }; Returns: Json
+                           },
+"get_coach_feedback_entry":
+{ Args: { "campaign_id": string,"feedback_id": string,"player_id": string }; Returns: Json
+                           },
+"get_coach_player_context":
+{ Args: { "campaign_id": string,"drafts"?: string,"membership"?: string,"player_id": string,"query"?: string }; Returns: Json
+                           },
+"get_coach_roster_neighbors":
+{ Args: { "campaign_id": string,"drafts"?: string,"membership"?: string,"player_id": string,"query"?: string }; Returns: Json
+                           },
 "get_my_access":
 { Args: Record<PropertyKey, never>; Returns: Json
                            },
@@ -396,6 +408,15 @@ isOneToOne: false
                            },
 "list_account_setup_operations":
 { Args: { "page_cursor"?: Json,"page_size"?: number }; Returns: Json
+                           },
+"list_coach_campaigns":
+{ Args: { "cursor"?: string,"mode": string,"page_size"?: number,"query"?: string,"stage"?: Database["public"]['Enums']["campaign_stage"] }; Returns: Json
+                           },
+"list_coach_feedback_history":
+{ Args: { "campaign_id": string,"cursor"?: string,"observed_from"?: string,"observed_to"?: string,"page_size"?: number,"player_id": string }; Returns: Json
+                           },
+"list_coach_roster":
+{ Args: { "campaign_id": string,"cursor"?: string,"drafts"?: string,"membership"?: string,"page_size"?: number,"query"?: string }; Returns: Json
                            },
 "list_final_obligations":
 { Args: { "campaign_id": string,"page_cursor"?: Json,"page_size"?: number,"status_filter"?: string }; Returns: Json

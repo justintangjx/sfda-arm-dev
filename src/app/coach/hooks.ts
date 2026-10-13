@@ -63,6 +63,7 @@ export function usePages<T extends { id: string }>(
     Readonly<{
       rows: readonly T[]
       cursor: string | undefined
+      queryFingerprint: string | undefined
       loading: boolean
       error: LoadState<T>['error']
       loaded: boolean
@@ -70,6 +71,7 @@ export function usePages<T extends { id: string }>(
   >({
     rows: [],
     cursor: undefined,
+    queryFingerprint: undefined,
     loading: true,
     error: undefined,
     loaded: false,
@@ -100,6 +102,8 @@ export function usePages<T extends { id: string }>(
                       ),
                     ],
                 cursor: result.value.nextCursor,
+                queryFingerprint:
+                  result.value.queryFingerprint ?? value.queryFingerprint,
                 loading: false,
                 error: undefined,
                 loaded: true,
@@ -129,6 +133,7 @@ export function usePages<T extends { id: string }>(
     setState({
       rows: [],
       cursor: undefined,
+      queryFingerprint: undefined,
       loading: true,
       error: undefined,
       loaded: false,
