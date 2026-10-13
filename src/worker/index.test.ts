@@ -43,7 +43,7 @@ describe('Worker API boundary (Node unit checks)', () => {
     const record = JSON.parse(log.mock.calls[0][0])
     expect(record).toEqual({
       requestId: error.requestId,
-      route: 'unmatched',
+      route: 'unmatched_route',
       status: 404,
       elapsedMs: expect.any(Number),
       appEnv: 'unknown',

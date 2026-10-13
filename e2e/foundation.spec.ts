@@ -5,12 +5,14 @@ test('React loads at the root and through a direct SPA navigation', async ({
 }) => {
   const errors: string[] = []
   page.on('pageerror', (error) => errors.push(error.message))
-  for (const path of ['/', '/foundation/route-check']) {
-    await page.goto(path)
-    await expect(
-      page.getByRole('heading', { name: 'SFDA', exact: true }),
-    ).toBeVisible()
-  }
+  await page.goto('/')
+  await expect(
+    page.getByRole('heading', { name: 'Your campaigns' }),
+  ).toBeVisible()
+  await page.goto('/coach/campaigns/10000000-0000-4000-8000-000000000001')
+  await expect(
+    page.getByRole('heading', { name: 'Choose a player' }),
+  ).toBeVisible()
   expect(errors).toEqual([])
 })
 

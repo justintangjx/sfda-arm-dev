@@ -126,7 +126,7 @@ if (command === 'reset') {
     writeFileSync('src/domain/database.types.ts', result.stdout)
   }
   console.info(`Local database ${command} completed.`)
-} else if (command === 'test') {
+} else if (command === 'test' || command === 'auth') {
   const status = localStatus()
   assertLocal(status)
   if (
@@ -134,20 +134,41 @@ if (command === 'reset') {
     typeof status.SERVICE_ROLE_KEY !== 'string'
   )
     fail('Local Supabase test keys are unavailable.')
+  const mailUrl = status.MAILPIT_URL ?? status.INBUCKET_URL
+  if (
+    command === 'auth' &&
+    (typeof mailUrl !== 'string' ||
+      !['http://127.0.0.1:54324', 'http://localhost:54324'].includes(mailUrl))
+  )
+    fail(
+      'Local mail capture is unavailable. Auth compatibility remains unproven.',
+    )
   const result = spawnSync(
     'pnpm',
-    ['exec', 'vitest', 'run', '--config', 'vitest.database.config.ts'],
+    [
+      'exec',
+      'vitest',
+      'run',
+      '--config',
+      'vitest.database.config.ts',
+      ...(command === 'auth'
+        ? ['supabase/tests/auth-compatibility.test.ts']
+        : []),
+    ],
     {
       env: {
         ...environment,
         SFDA_TEST_SUPABASE_URL: String(status.API_URL),
         SFDA_TEST_SUPABASE_PUBLIC_KEY: String(status.ANON_KEY),
         SFDA_TEST_SUPABASE_ADMIN_KEY: String(status.SERVICE_ROLE_KEY),
+        ...(typeof mailUrl === 'string'
+          ? { SFDA_TEST_SUPABASE_MAIL_URL: mailUrl }
+          : {}),
       },
       stdio: 'inherit',
     },
   )
   process.exit(result.status ?? 1)
 } else {
-  fail('You can choose start, restart, reset, apply, types or test.')
+  fail('You can choose start, restart, reset, apply, types, test or auth.')
 }

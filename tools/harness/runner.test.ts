@@ -49,6 +49,7 @@ const fixtureRoot = async (exitCode: number) => {
   for (const name of [
     '0002-fresh-data-model-access-rules',
     '0003-verification-harness-eval-contract',
+    '0005-first-real-coach-feedback-path',
   ]) {
     await mkdir(join(target, 'docs/specs', name), { recursive: true })
     await cp(
@@ -186,6 +187,12 @@ describe('compiled harness and real processes', () => {
   })
   it('rejects unsafe credentials, remote local targets, traversal and malformed evidence before a pass', async () => {
     const { target, env } = await fixtureRoot(0)
+    expect(
+      cli(target, { ...env, SUPABASE_ADMIN_KEY: 'fixture_value' }, [
+        '--checks',
+        'types',
+      ]).status,
+    ).toBe(2)
     expect(
       cli(target, { ...env, ELEVENLABS_API_KEY: 'fixture_value' }, [
         '--checks',

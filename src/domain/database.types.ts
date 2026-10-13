@@ -319,8 +319,26 @@ isOneToOne: false
 "advance_campaign_stage":
 { Args: { "campaign_id": string,"expected_version": number,"mutation_id": string,"next_stage": Database["public"]['Enums']["campaign_stage"],"reason": string }; Returns: Json
                            },
+"begin_account_setup":
+{ Args: { "display_name": string,"email_fingerprint": string,"mutation_id": string,"role": Database["public"]['Enums']["account_role"] }; Returns: Json
+                           },
+"begin_setup_link_replacement":
+{ Args: { "expected_version": number,"mutation_id": string,"parent_id": string }; Returns: Json
+                           },
+"bootstrap_local_admin":
+{ Args: { "display_name": string,"profile_id": string }; Returns: Json
+                           },
+"claim_account_setup":
+{ Args: { "expected_version": number,"mutation_id": string,"operation_id": string }; Returns: Json
+                           },
+"complete_account_setup":
+{ Args: { "expected_version": number,"operation_id": string }; Returns: Json
+                           },
 "correct_feedback":
 { Args: { "content": Json,"expected_revision": number,"feedback_id": string,"mutation_id": string,"reason": string }; Returns: Json
+                           },
+"create_account_setup_profile":
+{ Args: { "expected_version": number,"operation_id": string }; Returns: Json
                            },
 "create_campaign":
 { Args: { "competition_id": string,"mutation_id": string,"name": string,"planned_preparation_start_on": string,"team_name": string }; Returns: Json
@@ -334,14 +352,38 @@ isOneToOne: false
 "discard_feedback_draft":
 { Args: { "draft_id": string,"expected_version": number,"mutation_id": string }; Returns: Json
                            },
+"get_account_setup_progress":
+{ Args: { "operation_id": string }; Returns: Json
+                           },
 "get_campaign_completion":
 { Args: { "campaign_id": string }; Returns: Json
                            },
 "get_my_access":
 { Args: Record<PropertyKey, never>; Returns: Json
                            },
+"get_password_setup_context":
+{ Args: { "capability_digest": string,"generation": number,"operation_id": string }; Returns: Json
+                           },
+"get_worker_account_setup":
+{ Args: { "actor_id": string,"operation_id": string }; Returns: Json
+                           },
+"list_account_setup_operations":
+{ Args: { "page_cursor"?: Json,"page_size"?: number }; Returns: Json
+                           },
 "list_final_obligations":
 { Args: { "campaign_id": string,"page_cursor"?: Json,"page_size"?: number,"status_filter"?: string }; Returns: Json
+                           },
+"lookup_setup_auth_identity":
+{ Args: { "email_fingerprint"?: string,"planned_id"?: string }; Returns: Json
+                           },
+"record_account_setup_step":
+{ Args: { "actor_id": string,"attempt_generation"?: number,"attempt_id"?: string,"capability_digest"?: string,"claim_id": string,"expected_version": number,"operation_id": string,"safe_code"?: string,"step": string }; Returns: Json
+                           },
+"record_password_setup_result":
+{ Args: { "capability_digest": string,"generation": number,"operation_id": string,"target_id": string }; Returns: Json
+                           },
+"renew_account_setup_claim":
+{ Args: { "actor_id": string,"claim_id": string,"expected_version": number,"operation_id": string }; Returns: Json
                            },
 "save_feedback_draft":
 { Args: { "campaign_id": string,"content": Json,"draft_id": string,"expected_version": number,"kind": Database["public"]['Enums']["feedback_kind"],"mutation_id": string,"player_id": string,"review_confirmed": boolean }; Returns: Json

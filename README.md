@@ -1,6 +1,6 @@
-# SFDA application foundation
+# SFDA coach feedback
 
-This scaffold implements the runtime foundation in [spec 0001](docs/specs/0001-architecture-environments/index.md). It starts from the official Vite React TypeScript initializer. React runs in the browser. A Cloudflare Worker serves the API and static application assets through one origin.
+This application implements the runtime foundation, database access rules, preview coach interface and the local account and preparation path in [spec 0005](docs/specs/0005-first-real-coach-feedback-path/index.md). React runs in the browser. A Cloudflare Worker serves the API and static application assets through one origin.
 
 You can use Node 24 (the local version is recorded in `.node-version`) and pnpm 11.5.2 (pinned in `package.json`). The exact resolved dependencies are recorded in `pnpm-lock.yaml`.
 
@@ -20,15 +20,20 @@ You can run the scaffold without database settings through its explicit preview 
 pnpm dev:preview
 ```
 
-You can open `http://127.0.0.1:5173`. This profile exposes no Supabase connection values and always disables voice. Its API has only health and configuration routes. It contains no account, player or feedback fixtures yet.
+You can open `http://127.0.0.1:5173`. Preview uses synthetic coach fixtures, exposes no Supabase connection values and disables voice. Its fixture writes are temporary. Account provisioning is unavailable in preview.
 
-For the local live profile, you can copy `.dev.vars.example` to `.dev.vars` and fill `SUPABASE_URL` and `SUPABASE_PUBLIC_KEY` from your local Supabase CLI output. Then you can run:
+With Docker running, you can start real local Supabase, apply the migrations, and establish the first synthetic administrator:
 
 ```sh
-pnpm dev
+pnpm db:start
+pnpm db:apply
+APP_ENV=local pnpm db:bootstrap
+pnpm dev:local
 ```
 
-Without these settings, `/api/health` and `/api/config` return `503 CONFIG_INVALID`. Missing settings never select preview mode. The local data model and access rules are available through Supabase, as described below. The foundation screen has no account or feedback interface yet.
+Before bootstrap, you can supply `SFDA_BOOTSTRAP_EMAIL` through your runtime environment using a generated `synthetic-UUID@example.invalid` address, and optionally supply `SFDA_BOOTSTRAP_NAME`. Bootstrap prompts for a concealed password, or accepts `SFDA_BOOTSTRAP_PASSWORD` as an ephemeral runtime secret. It refuses an existing administrator or email, and only targets this project's local API. `dev:local` reads CLI status, fills missing connection bindings in ignored `.dev.vars`, and refuses conflicting settings. You can sign in at `http://127.0.0.1:5173`. An enabled admin provisions coach and player accounts, creates a campaign, assigns them and opens preparation. Password links appear in local Mailpit at `http://127.0.0.1:54324`. Each recipient explicitly sets their own password, then signs in normally.
+
+Sessions stay in memory. Reloading requires another login. Explicit saved drafts and submitted feedback remain in Supabase. New setup endpoints require the local profile and exact loopback origin. Missing settings return `503 CONFIG_INVALID` and never select preview.
 
 ## Configuration
 
@@ -39,6 +44,7 @@ Without these settings, `/api/health` and `/api/config` return `503 CONFIG_INVAL
 | `RELEASE_ID`          | `local` for local development, commit SHA for a hosted release         |
 | `SUPABASE_URL`        | Local CLI or new production project public connection value            |
 | `SUPABASE_PUBLIC_KEY` | Local CLI or new production project public client key                  |
+| `SUPABASE_ADMIN_KEY`  | Local CLI service key, used only inside the Worker for local setup     |
 | `VOICE_ENABLED`       | Explicit boolean setting, false by default and always false in preview |
 
 The compatibility date is `2026-10-06`. You can change it through a reviewed runtime update. No Node compatibility flag is enabled. `wrangler types` records runtime types for the configured date and bindings.
@@ -51,17 +57,17 @@ Worker and account names in `wrangler.jsonc` are local scaffold identifiers. Hos
 
 | Path                   | Responsibility                                                                |
 | ---------------------- | ----------------------------------------------------------------------------- |
-| `src/app/`             | Browser entry and React Router, currently a plain foundation placeholder      |
+| `src/app/`             | Login, local admin setup, own account status and coach preparation interface  |
 | `src/domain/`          | Pure shared response contracts, with no runtime or secret imports             |
 | `src/worker/`          | Standard Worker Fetch handler and configuration validation                    |
-| `supabase/migrations/` | Two SQL slices for preparation and the final lifecycle                        |
+| `supabase/migrations/` | Preparation, final lifecycle and private local account setup transactions     |
 | `e2e/`                 | Browser and API checks against built assets and the real local Worker runtime |
 
-Browser and shared modules cannot import `src/worker/`. Future authentication uses Supabase with sessions held only in memory, as specified in the architecture. The Supabase client is installed for the data slice. Account delivery, sign in screens and voice providers remain separate features.
+Browser and shared modules cannot import `src/worker/`. Supabase sessions stay in memory. Production account delivery and voice providers remain separate features.
 
 ## Local data model
 
-The data slice implements [spec 0002](docs/specs/0002-fresh-data-model-access-rules/index.md). Supabase owns access rules and atomic writes. The browser uses the caller's token for named database functions. No Worker data proxy or account provisioning endpoint is added.
+The data slice implements [spec 0002](docs/specs/0002-fresh-data-model-access-rules/index.md). Supabase owns access rules and atomic writes. The browser uses the caller's token for named database functions. The Worker adds local account provisioning and password setup, backed by a private operation journal. Ordinary feedback remains caller authorised.
 
 You can run a Docker compatible runtime, then start this project's local Supabase services:
 
@@ -82,7 +88,7 @@ Public signup is disabled. The local email provider remains enabled so provision
 
 You can replay the migrations from scratch with `pnpm db:reset`. This removes local fixture data and refuses any Auth account outside the generated synthetic fixture. It never uses a linked or hosted project. You can restart local services after configuration changes with `pnpm db:restart`, which preserves data.
 
-Submitted originals, pairings, obligations, corrections, waivers, receipts and audits are retained. Ending a feedback stage deletes its unfinished drafts in the same transaction. Approved data deletion, account delivery, the coach interface, live voice and production migration delivery remain separate work. Real player use still needs the project's consent and location decisions and release evidence.
+Submitted originals, pairings, obligations, corrections, waivers, receipts and audits are retained. Ending a feedback stage deletes its unfinished drafts in the same transaction. The preparation interface reuses these rules. Final stage and correction editing controls, approved deletion, production account delivery, live voice and production migration delivery remain separate work. Real player use still needs the project's consent and location decisions and release evidence.
 
 ## Checks
 
@@ -93,6 +99,10 @@ pnpm check
 ```
 
 You can also run `pnpm lint`, `pnpm format:check`, `pnpm typecheck`, `pnpm build`, `pnpm test` and `pnpm e2e` separately. Vitest checks configuration failures and log redaction in Node. Playwright builds the explicit preview profile and checks React, direct SPA navigation, uncached API responses and JSON errors through workerd. These scaffold checks do not establish database permissions, real authentication or hosted readiness. You can use the separate `pnpm test:db` command for real local database evidence. It requires Docker and the applied migrations, and is not silently skipped by `pnpm check`.
+
+You can run `pnpm test:auth` for the pinned invitation and recovery compatibility gate. `pnpm e2e:live` uses real local Auth, captured mail and the local Worker. It requires a clean synthetic bootstrap database, or both `SFDA_LIVE_ADMIN_EMAIL` and `SFDA_LIVE_ADMIN_PASSWORD` supplied through your runtime environment for a verified existing local bootstrap admin. The runner never adopts an unrelated account. The live test covers account setup, password choice, assignments, explicit submission, another login, saved draft resume and a second submission. Proof URLs, passwords, browser storage, traces, screenshots and raw provider responses are excluded from retained evidence.
+
+The preparation harness includes `database_accounts`, `browser_preparation` and `preparation_accessibility`, in addition to the existing database and foundation checks. You can run `APP_ENV=local pnpm verify --mode check --profile preparation`. The full browser check requires both engines and the supplied local bootstrap credentials. Missing prerequisites remain missing, and advisory runs keep `releaseReady: false`.
 
 GitHub Actions runs `pnpm verify --mode check --profile foundation` for pull requests and pushes to `main`, through [.github/workflows/checks.yml](.github/workflows/checks.yml). You can run the same command locally. The [harness guide](verification/README.md) explains profiles, reports, evidence and strict release gates. Missing evidence can give advisory success, while every advisory report prints `releaseReady: false`. CI installs Chromium and WebKit, uses the frozen lockfile and retains safe reports for 30 days. Actions are pinned to full commit IDs. New commits cancel older checks for the same pull request or branch.
 
@@ -114,4 +124,4 @@ The Git hook in `.githooks/pre-commit` runs `pnpm check:commit`, which runs lint
 
 You can activate the hook with `pnpm prepare`. Fresh dependency installation also runs this setup, but pnpm may skip it when repeating an unchanged install. Setup is safe to repeat and uses only this repository's Git configuration. If the folder has no `.git`, setup reports a skip. You can run `pnpm prepare` again once a Git repository exists. Existing custom hook settings or hooks in the default Git hooks directory are preserved, with a message explaining the skip.
 
-The scope remains in progress under the GA workflow. Suggested next: `/check verify fresh data model and access rules`, then independent review and release evidence. Hosted setup, production deployment, account delivery and coach interface work remain separate tasks.
+The scope remains in progress under the GA workflow. Suggested next: `/check verify first real coach feedback path`, then the separate tests, independent review and release documentation recorded in scope. Local synthetic checks do not establish production delivery or real player readiness.

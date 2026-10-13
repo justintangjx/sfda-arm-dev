@@ -1,0 +1,40 @@
+.workspace {
+  display: grid;
+  gap: var(--space-6);
+}
+.columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-6);
+}
+.columns > * {
+  min-width: 0;
+}
+.fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  border: 0;
+  padding: 0;
+  min-width: 0;
+}
+.fields legend {
+  font-weight: 700;
+  margin-block-end: var(--space-3);
+}
+.operations {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: var(--space-4);
+}
+.operations li {
+  padding-block: var(--space-4);
+  border-block-start: 1px solid var(--separator);
+  overflow-wrap: anywhere;
+}
+@media (max-width: 959px) {
+  .columns {
+    grid-template-columns: 1fr;
+  }
+}

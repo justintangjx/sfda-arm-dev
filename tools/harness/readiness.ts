@@ -30,6 +30,9 @@ const activationChecks = [
 const dataChecks = [
   'database_preparation',
   'database_campaign',
+  'database_accounts',
+  'browser_preparation',
+  'preparation_accessibility',
   'migration_history',
 ]
 const alwaysChecks = [

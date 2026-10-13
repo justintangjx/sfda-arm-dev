@@ -1,0 +1,371 @@
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import type { Entry } from './contracts'
+import {
+  formatDate,
+  formatInstant,
+  textFields,
+  type Editor,
+  type Proposal,
+  type TextField,
+} from './editor'
+import styles from './coach.module.css'
+import { fieldLabels } from './labels'
+
+export function StatusBanner({
+  children,
+  urgent = false,
+}: Readonly<{ children: ReactNode; urgent?: boolean }>) {
+  return (
+    <div className={styles.banner} role={urgent ? 'alert' : 'status'}>
+      {children}
+    </div>
+  )
+}
+export function AsyncState({
+  title,
+  children,
+  retry,
+}: Readonly<{ title: string; children?: ReactNode; retry?: () => void }>) {
+  return (
+    <section className={styles.empty}>
+      <h2>{title}</h2>
+      {children && <p>{children}</p>}
+      {retry && (
+        <button type="button" onClick={retry}>
+          Retry
+        </button>
+      )}
+    </section>
+  )
+}
+export function Dialog({
+  title,
+  children,
+  close,
+}: Readonly<{ title: string; children: ReactNode; close: () => void }>) {
+  const ref = useRef<HTMLDialogElement>(null)
+  const titleId = useId()
+  useEffect(() => {
+    const dialog = ref.current!
+    const invoker =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : undefined
+    dialog.showModal()
+    dialog.querySelector<HTMLButtonElement>('[data-safe-focus]')?.focus()
+    return () => {
+      dialog.close()
+      if (invoker?.isConnected) invoker.focus()
+    }
+  }, [])
+  return (
+    <dialog
+      ref={ref}
+      aria-labelledby={titleId}
+      className={styles.dialog}
+      onKeyDown={(event) => {
+        if (event.key !== 'Tab') return
+        const controls = [
+          ...event.currentTarget.querySelectorAll<HTMLElement>(
+            'button:not(:disabled), a[href], input:not(:disabled), textarea:not(:disabled), select:not(:disabled), [tabindex="0"]',
+          ),
+        ].filter((element) => element.getClientRects().length > 0)
+        const first = controls[0]
+        const last = controls.at(-1)
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault()
+          last?.focus()
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault()
+          first?.focus()
+        }
+      }}
+      onCancel={(event) => {
+        event.preventDefault()
+        close()
+      }}
+    >
+      <h2 id={titleId}>{title}</h2>
+      {children}
+    </dialog>
+  )
+}
+export function FeedbackTabs({
+  tab,
+  change,
+}: Readonly<{
+  tab: 'write' | 'history'
+  change: (tab: 'write' | 'history') => void
+}>) {
+  const refs = useRef<Partial<Record<'write' | 'history', HTMLButtonElement>>>(
+    {},
+  )
+  const [focusState, setFocusState] = useState({ tab, value: tab })
+  const focused = focusState.tab === tab ? focusState.value : tab
+  const setFocused = (value: 'write' | 'history') =>
+    setFocusState({ tab, value })
+  return (
+    <div className={styles.tabs} role="tablist" aria-label="Player feedback">
+      {(['write', 'history'] as const).map((value) => (
+        <button
+          key={value}
+          ref={(element) => {
+            if (element) refs.current[value] = element
+          }}
+          type="button"
+          role="tab"
+          id={`${value}-tab`}
+          aria-controls={`${value}-panel`}
+          aria-selected={tab === value}
+          tabIndex={focused === value ? 0 : -1}
+          onFocus={() => setFocused(value)}
+          onClick={() => change(value)}
+          onKeyDown={(event) => {
+            const target =
+              event.key === 'Home'
+                ? 'write'
+                : event.key === 'End'
+                  ? 'history'
+                  : ['ArrowLeft', 'ArrowRight'].includes(event.key)
+                    ? value === 'write'
+                      ? 'history'
+                      : 'write'
+                    : undefined
+            if (target) {
+              event.preventDefault()
+              setFocused(target)
+              refs.current[target]?.focus()
+            }
+          }}
+        >
+          {value === 'write' ? 'Write feedback' : 'History'}
+        </button>
+      ))}
+    </div>
+  )
+}
+export function ContentReview({
+  content,
+}: Readonly<{ content: Editor['form'] }>) {
+  return (
+    <dl className={styles.feedbackText}>
+      <dt>Observation date</dt>
+      <dd>{formatDate(content.observedOn || null)}</dd>
+      {textFields.map((field) => (
+        <div key={field}>
+          <dt>{fieldLabels[field]}</dt>
+          <dd>{content[field] || 'Not provided'}</dd>
+        </div>
+      ))}
+    </dl>
+  )
+}
+export function FeedbackHistory({
+  entries,
+}: Readonly<{ entries: readonly Entry[] }>) {
+  return (
+    <ol className={styles.history}>
+      {entries.map((entry) => {
+        const latest = entry.corrections.at(-1)
+        const renderText = (content: Entry['content']) => (
+          <dl className={styles.feedbackText}>
+            <dt>Observation date</dt>
+            <dd>{formatDate(content.observedOn)}</dd>
+            {textFields.map((field) => (
+              <div key={field}>
+                <dt>{fieldLabels[field]}</dt>
+                <dd>{content[field] ?? 'Not provided'}</dd>
+              </div>
+            ))}
+          </dl>
+        )
+        return (
+          <li
+            key={entry.id}
+            id={`submission-${entry.id}`}
+            className={styles.card}
+          >
+            <div className={styles.sectionHeader}>
+              <h3>
+                {entry.kind === 'preparation'
+                  ? 'Preparation observation'
+                  : 'Final assessment'}
+              </h3>
+              <span className={styles.badge}>Submitted</span>
+            </div>
+            <p className={styles.support}>
+              Submitted {formatInstant(entry.submittedAt)}
+            </p>
+            {latest ? (
+              <>
+                <div className={styles.comparison}>
+                  <section>
+                    <h4>Original feedback</h4>
+                    {renderText(entry.content)}
+                  </section>
+                  <section>
+                    <h4>Latest correction</h4>
+                    {renderText(latest.content)}
+                    <p>Admin, {formatInstant(latest.correctedAt)}</p>
+                    <p>Reason: {latest.reason}</p>
+                  </section>
+                </div>
+                <details>
+                  <summary>
+                    Correction history ({entry.corrections.length})
+                  </summary>
+                  <ol>
+                    {entry.corrections.map((correction) => (
+                      <li key={correction.id}>
+                        <h4>Revision {correction.revision}, Admin</h4>
+                        <p>{formatInstant(correction.correctedAt)}</p>
+                        <p>Reason: {correction.reason}</p>
+                        {renderText(correction.content)}
+                      </li>
+                    ))}
+                  </ol>
+                </details>
+              </>
+            ) : (
+              renderText(entry.content)
+            )}
+          </li>
+        )
+      })}
+    </ol>
+  )
+}
+export type VoiceState =
+  | 'idle'
+  | 'requesting_microphone'
+  | 'listening'
+  | 'assistant_speaking'
+  | 'processing'
+  | 'proposal_ready'
+  | 'cancelled'
+  | 'failed'
+export type VoiceAdapter = Readonly<{
+  evidence: 'fixture'
+  state: VoiceState
+  proposal: Proposal | undefined
+  start: () => void
+  stop: () => void
+  cancel: () => void
+}>
+// Isolated UI tests may inject this simulated adapter. Public routes never do.
+export function VoicePanel({
+  adapter,
+  editor,
+  locked,
+  apply,
+}: Readonly<{
+  adapter: VoiceAdapter
+  editor: Editor
+  locked: boolean
+  apply: (proposal: Proposal, fields: readonly TextField[]) => void
+}>) {
+  const [selection, setSelection] = useState<
+    Readonly<{ proposalId: string | undefined; fields: readonly TextField[] }>
+  >({ proposalId: undefined, fields: [] })
+  const selected =
+    selection.proposalId === adapter.proposal?.id ? selection.fields : []
+  const setSelected = (fields: readonly TextField[]) =>
+    setSelection({ proposalId: adapter.proposal?.id, fields })
+  const labels: Readonly<Record<VoiceState, string>> = {
+    idle: 'Ready to start',
+    requesting_microphone: 'Requesting microphone',
+    listening: 'Listening',
+    assistant_speaking: 'Assistant speaking',
+    processing: 'Preparing proposed text',
+    proposal_ready: 'Proposal ready for review',
+    cancelled: 'Conversation cancelled, nothing filed',
+    failed: 'Voice unavailable. You can continue writing.',
+  }
+  return (
+    <section className={styles.card} aria-label="Speak feedback">
+      <h3>Speak feedback</h3>
+      <p>
+        Simulated voice, fixture evidence only.{' '}
+        {editor.context.kind === 'final'
+          ? 'Final assessment'
+          : 'Preparation observation'}{' '}
+        for reference {editor.context.playerId.slice(0, 8)}.
+      </p>
+      <p role="status">{labels[adapter.state]}</p>
+      <div className={styles.actions}>
+        <button
+          type="button"
+          onClick={adapter.start}
+          disabled={
+            locked || !['idle', 'failed', 'cancelled'].includes(adapter.state)
+          }
+        >
+          Start conversation
+        </button>
+        <button
+          type="button"
+          onClick={adapter.stop}
+          disabled={
+            !['listening', 'assistant_speaking'].includes(adapter.state)
+          }
+        >
+          Stop
+        </button>
+        <button type="button" onClick={adapter.cancel}>
+          Cancel conversation
+        </button>
+      </div>
+      {adapter.proposal && (
+        <fieldset disabled={locked}>
+          <legend>Compare proposed text</legend>
+          {textFields.map((field) => (
+            <div key={field}>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={selected.includes(field)}
+                  onChange={(event) =>
+                    setSelected(
+                      event.target.checked
+                        ? [...selected, field]
+                        : selected.filter((value) => value !== field),
+                    )
+                  }
+                />{' '}
+                Apply {fieldLabels[field]}
+              </label>
+              <div className={styles.comparison}>
+                <section>
+                  <h4>Current form</h4>
+                  <p className={styles.plainText}>
+                    {editor.form[field] || 'Blank'}
+                  </p>
+                </section>
+                <section>
+                  <h4>Proposed text</h4>
+                  <p className={styles.plainText}>
+                    {adapter.proposal!.fields[field]}
+                  </p>
+                </section>
+              </div>
+            </div>
+          ))}
+          <button
+            type="button"
+            disabled={!selected.length || locked}
+            onClick={() => {
+              apply(adapter.proposal!, selected)
+              setSelected([])
+            }}
+          >
+            Apply selected fields
+          </button>
+          <p>
+            Applying changes your form. Saving and submitting are separate
+            actions. Your observation date stays the same.
+          </p>
+        </fieldset>
+      )}
+    </section>
+  )
+}

@@ -9,6 +9,7 @@ export interface ConfigurationBindings {
   RELEASE_ID?: unknown
   SUPABASE_URL?: unknown
   SUPABASE_PUBLIC_KEY?: unknown
+  SUPABASE_ADMIN_KEY?: unknown
   VOICE_ENABLED?: unknown
 }
 

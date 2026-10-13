@@ -65,6 +65,10 @@
         {
           "path": "docs/specs/0003-verification-harness-eval-contract/index.md",
           "criteria": ["AC-1", "AC-4", "AC-11"]
+        },
+        {
+          "path": "docs/specs/0005-first-real-coach-feedback-path/index.md",
+          "criteria": ["AC-1", "AC-4", "AC-6", "AC-9", "AC-10", "AC-12"]
         }
       ],
       "capabilities": ["foundation"],
@@ -133,6 +137,10 @@
             "AC-15",
             "AC-16"
           ]
+        },
+        {
+          "path": "docs/specs/0005-first-real-coach-feedback-path/index.md",
+          "criteria": ["AC-7", "AC-8", "AC-9", "AC-10", "AC-12"]
         }
       ],
       "capabilities": ["preparation"],
@@ -168,11 +176,68 @@
             "AC-15",
             "AC-16"
           ]
+        },
+        {
+          "path": "docs/specs/0005-first-real-coach-feedback-path/index.md",
+          "criteria": ["AC-9", "AC-10", "AC-11", "AC-12"]
         }
       ],
-      "capabilities": ["campaign"],
+      "capabilities": ["preparation", "campaign"],
       "adapterId": "database_campaign",
       "timeoutSeconds": 900
+    },
+    {
+      "id": "database_accounts",
+      "name": "Local Auth compatibility and private setup transactions",
+      "evidenceKind": "local_database",
+      "specs": [
+        {
+          "path": "docs/specs/0005-first-real-coach-feedback-path/index.md",
+          "criteria": ["AC-2", "AC-3", "AC-4", "AC-9", "AC-12", "AC-13"]
+        }
+      ],
+      "capabilities": ["preparation"],
+      "adapterId": "database_accounts",
+      "timeoutSeconds": 900
+    },
+    {
+      "id": "browser_preparation",
+      "name": "Real local coach feedback browser matrix",
+      "evidenceKind": "local_database",
+      "specs": [
+        {
+          "path": "docs/specs/0005-first-real-coach-feedback-path/index.md",
+          "criteria": [
+            "AC-1",
+            "AC-2",
+            "AC-4",
+            "AC-5",
+            "AC-6",
+            "AC-8",
+            "AC-7",
+            "AC-9",
+            "AC-12",
+            "AC-13"
+          ]
+        }
+      ],
+      "capabilities": ["preparation"],
+      "adapterId": "browser_preparation",
+      "timeoutSeconds": 900
+    },
+    {
+      "id": "preparation_accessibility",
+      "name": "Human preparation accessibility evidence",
+      "evidenceKind": "human",
+      "specs": [
+        {
+          "path": "docs/specs/0005-first-real-coach-feedback-path/index.md",
+          "criteria": ["AC-13"]
+        }
+      ],
+      "capabilities": ["preparation"],
+      "adapterId": "preparation_accessibility",
+      "timeoutSeconds": 60
     },
     {
       "id": "voice_simulation",
