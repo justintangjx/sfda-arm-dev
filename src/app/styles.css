@@ -1,14 +1,131 @@
-:root {
-  font-family: system-ui, sans-serif;
-  color-scheme: light dark;
-}
+@import './styles/tokens.css';
 
+* {
+  box-sizing: border-box;
+}
 body {
   margin: 0;
+  background: var(--page);
+  color: var(--text);
+  font: var(--body-size) / var(--line-height) var(--font);
 }
-
-main {
-  max-width: 48rem;
-  margin: 4rem auto;
-  padding: 0 1.5rem;
+h1,
+h2,
+h3,
+h4,
+p {
+  margin-block: 0 var(--space-4);
+}
+h1 {
+  font-size: var(--title-size);
+  line-height: 1.25;
+}
+h2 {
+  font-size: var(--heading-size);
+}
+h3,
+h4 {
+  font-size: var(--body-size);
+}
+a {
+  color: var(--action);
+  text-underline-offset: var(--space-1);
+}
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+button,
+a,
+input,
+textarea,
+select,
+summary {
+  touch-action: manipulation;
+}
+button {
+  min-height: var(--target);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius);
+  color: var(--text);
+  background: var(--surface);
+  cursor: pointer;
+}
+button:hover:not(:disabled) {
+  border-color: var(--action);
+  background: var(--page);
+}
+button:disabled {
+  color: var(--secondary);
+  background: var(--page);
+  cursor: default;
+}
+input:not([type='checkbox']),
+textarea,
+select {
+  min-width: 0;
+  max-width: 100%;
+  display: block;
+  width: 100%;
+  min-height: var(--target);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius);
+  padding: var(--space-3);
+  color: var(--text);
+  background: var(--surface);
+}
+input[readonly],
+textarea[readonly] {
+  background: var(--page);
+}
+textarea {
+  resize: vertical;
+  min-height: 128px;
+}
+input[type='checkbox'] {
+  width: var(--space-6);
+  height: var(--space-6);
+  accent-color: var(--action);
+}
+label {
+  display: block;
+  font-weight: 600;
+  margin-block-end: var(--space-2);
+}
+fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+legend {
+  font-weight: 600;
+  margin-block-end: var(--space-4);
+}
+:focus-visible {
+  outline: var(--focus-width) solid var(--focus);
+  outline-offset: var(--focus-offset);
+}
+[tabindex='-1']:focus {
+  outline: var(--focus-width) solid var(--focus);
+  outline-offset: var(--focus-offset);
+}
+[aria-invalid='true'] {
+  border-color: var(--danger);
+}
+summary {
+  cursor: pointer;
+  min-height: var(--target);
+  padding-block: var(--space-3);
+  color: var(--action);
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+  }
 }

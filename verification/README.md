@@ -5,10 +5,13 @@ You can use Node 24 and the recorded pnpm version to run the harness:
 ```sh
 pnpm verify --mode check --profile foundation
 APP_ENV=local pnpm verify --mode check --profile campaign
+APP_ENV=local pnpm verify --mode check --profile preparation
 pnpm verify --mode check --profile voice
 ```
 
 The entry point compiles `tools/harness/` into a new ignored directory before running it. Definitions, checks and cases use schema version 1. Generated reports go into `.verification/runs/<runId>/`. Each run has `report.json`, `compact-summary.json` and `summary.txt`. Reports contain safe codes and synthetic evidence. Child stdout, exception details, credentials, traces and screenshots are omitted.
+
+Each test runner also writes `*.failure-summary.txt` with test names, source locations, projects, attempt numbers and safe reason codes for failed, skipped or cancelled attempts. Earlier failures remain visible when a retry passes. GitHub Actions always prints these files and `summary.txt` in the CI logs and retains them with the reports. Raw assertion values and exception messages remain omitted.
 
 Check mode is advisory. Exit 0 can include missing checks. Exit 1 means an observed failure. Exit 2 means invalid or unsafe input. Every advisory run prints `releaseReady: false`. The report keeps all captured attempts. Passing after a retry is `flaky`. Vitest capture runs around each attempt, before the native runner discards its failed state. Playwright capture records every result. Neither wrapper adds retries to native retries.
 
@@ -22,13 +25,13 @@ Filters are rejected in readiness mode. Output paths can be repository relative 
 
 ## Evidence and environments
 
-| Profile     | Coverage                                                                            |
-| ----------- | ----------------------------------------------------------------------------------- |
-| foundation  | Build, strict types, lint, format, logic, harness contracts and the browser matrix  |
-| preparation | Foundation and actual local Supabase Auth and preparation checks                    |
-| campaign    | Preparation and actual local lifecycle, retention and races                         |
-| voice       | Campaign, proposal simulations and explicit missing human, live and speech evidence |
-| pilot       | Campaign and explicit missing production, device, account, policy and GA evidence   |
+| Profile     | Coverage                                                                                               |
+| ----------- | ------------------------------------------------------------------------------------------------------ |
+| foundation  | Build, strict types, lint, format, logic, harness contracts and the browser matrix                     |
+| preparation | Foundation, actual local Auth, setup journal, preparation rules, lifecycle races and live browser path |
+| campaign    | Preparation and actual local lifecycle, retention and races                                            |
+| voice       | Campaign, proposal simulations and explicit missing human, live and speech evidence                    |
+| pilot       | Campaign and explicit missing production, device, account, policy and GA evidence                      |
 
 The browser matrix uses Chromium and WebKit at 1280 by 800 and 390 by 844. The mobile projects use touch. You can install the recorded engines with `pnpm exec playwright install chromium webkit`. With installed Chrome, you can set `PLAYWRIGHT_BROWSER_CHANNEL=chrome` for Chromium projects. WebKit is still required for the full matrix. Browser emulation cannot satisfy actual device evidence.
 
@@ -36,7 +39,9 @@ Database checks require `APP_ENV=local`, Docker and the applied migrations. The 
 
 [database-coverage.json](database-coverage.json) maps all sixteen criteria in spec 0002, all seven caller roles and its eleven scenario groups to named executable tests. Startup checks the source references. Browser fixtures and proposal simulations cannot replace this database evidence. The voice proposal mapping distinguishes its real reviewed database write check from its late result simulation.
 
-Ordinary check subprocesses receive an allowlist of environment values. Production, local admin and provider credentials in the caller's check environment are rejected. Local test credentials come only from the inspected CLI instance and stay in that child process. An ordinary pull request cannot run privileged production or paid checks.
+Ordinary check subprocesses receive an allowlist of environment values. Production, Supabase service and provider credentials in the caller's check environment are rejected. Local service credentials come only from the inspected CLI instance and stay in that child process. An ordinary pull request cannot run privileged production or paid checks.
+
+Spec 0005 adds `database_accounts`, `browser_preparation` and `preparation_accessibility`. The account adapter runs pinned Auth compatibility, atomic setup transactions, actual Worker orchestration with deliberately lost local provider responses, and a real coach history read. The live browser adapter needs both engines, local mail capture, and `SFDA_LIVE_ADMIN_EMAIL` plus `SFDA_LIVE_ADMIN_PASSWORD` supplied through the runtime environment. Those two local bootstrap inputs are forwarded only to the local browser child. The runner verifies the normal login, enabled admin profile and trusted bootstrap marker, then discards its session. The harness never creates a replacement admin or resets data. Missing engines, bootstrap inputs or human accessibility evidence remain missing.
 
 ## Reviews and retained evidence
 

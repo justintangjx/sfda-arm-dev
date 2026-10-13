@@ -122,11 +122,11 @@ Define a small harness, meaning one repeatable entry point that runs relevant ch
 
 **Spec:** [0003](../specs/0003-verification-harness-eval-contract/index.md), design confirmed on 6 October 2026. You authorised implementation through `/develop` on 11 October 2026. The runner and evidence contracts are built and self checked. The feature remains in progress under the GA workflow.
 
-**Code:** runner, validators, review scoring, provenance, migration reader and future adapter contracts in [tools/harness](../../tools/harness/), entry point in [scripts/verify.ts](../../scripts/verify.ts), definitions and synthetic cases in [verification](../../verification/), commands and verification steps in [verification/README.md](../../verification/README.md), CI and 30 day report retention in [.github/workflows/checks.yml](../../.github/workflows/checks.yml). The foundation command passed build, types, lint, format, 109 logic checks and 23 harness checks. Six Chromium desktop and mobile checks passed separately through workerd. WebKit downloads timed out. After you restarted OrbStack and authorised Docker access on 11 October 2026, `APP_ENV=local pnpm verify --mode check --profile campaign --checks database_preparation,database_campaign` passed 18 preparation and 20 campaign tests against actual local Supabase, all on their first attempt. The report is `.verification/runs/4a7675be-40f5-4aac-b06b-f637adb31e2e/report.json`; its database checks map all sixteen data criteria. Full browser and GitHub execution evidence remain pending. Corpus approval, production setup, live provider, speech and actual device evidence remain explicitly missing, and release readiness remains false.
+**Code:** runner, validators, review scoring, provenance, migration reader and future adapter contracts in [tools/harness](../../tools/harness/), entry point in [scripts/verify.ts](../../scripts/verify.ts), definitions and synthetic cases in [verification](../../verification/), commands and verification steps in [verification/README.md](../../verification/README.md), CI and 30 day report retention in [.github/workflows/checks.yml](../../.github/workflows/checks.yml). The foundation command passed build, types, lint, format, 109 logic checks and 23 harness checks. Six Chromium desktop and mobile checks passed separately through workerd. Local WebKit downloads timed out, and you deferred that local run. After you restarted OrbStack and authorised Docker access on 11 October 2026, `APP_ENV=local pnpm verify --mode check --profile campaign --checks database_preparation,database_campaign` passed 18 preparation and 20 campaign tests against actual local Supabase, all on their first attempt. The report is `.verification/runs/4a7675be-40f5-4aac-b06b-f637adb31e2e/report.json`; its database checks map all sixteen data criteria. Your GitHub Actions screenshot shows all seven foundation adapters passing with zero flaky, failed or missing results, including the full Chromium and WebKit matrix. Its report is `.verification/runs/4b7ea63b-fdb5-4dda-8501-1ec906c9898f/report.json`, and you confirmed the uploaded artifact on 11 October 2026. Separate GA verification, testing, review and documentation remain open. Corpus approval, production setup, live provider, speech and actual device evidence remain explicitly missing, and release readiness remains false.
 
 * [x] Design the verification contract (spec): `/architect verification harness and eval contract`
-* [ ] Build it: `/develop verification harness and eval contract`
-  * [ ] Prove the shared runner, structured reports and foundation browser/logic adapters locally and in CI. AC-1, AC-2, AC-3, AC-4, AC-8, AC-11, AC-14.
+* [x] Build it: `/develop verification harness and eval contract`
+  * [x] Prove the shared runner, structured reports and foundation browser/logic adapters locally and in CI. AC-1, AC-2, AC-3, AC-4, AC-8, AC-11, AC-14.
   * [x] Connect the real local database checks with safe synthetic setup and complete data rule mappings. AC-3, AC-5, AC-6, AC-14.
   * [x] Add ten text cases, per attempt integrity review, quality scoring, trusted approvals and retained evidence. AC-8, AC-9, AC-10, AC-11, AC-12.
   * [x] Implement phase specific release gates, migration history reading and future provider/smoke adapter contracts. AC-3, AC-6, AC-7, AC-9, AC-10, AC-12, AC-13.
@@ -142,17 +142,19 @@ Define a focused layout for choosing a campaign and player, reviewing feedback a
 
 **Done when:** the design covers keyboard and screen reader access, a recommended WCAG 2.2 AA target, clear campaign and player context, recording state, review and submission controls, and loading, empty, error and offline states.
 
-**Spec:** [0004](../specs/0004-coach-interface-foundation/index.md), design confirmed on 7 October 2026, including your subsequent approval of all four independent review fixes. UI-1 through UI-4 are resolved. Implementation remains unstarted and requires separate authorisation.
+**Spec:** [0004](../specs/0004-coach-interface-foundation/index.md), design confirmed on 7 October 2026, including your subsequent approval of all four independent review fixes. UI-1 through UI-4 are resolved. You authorised implementation through `/develop coach interface foundation` on 12 October 2026.
+
+**Code:** coach screens, typed adapter contracts, temporary editor state and actor owned pending actions in [src/app/coach](../../src/app/coach/), visual values in [tokens.css](../../src/app/styles/tokens.css), design context in [design.md](../../design.md), browser checks in [coach-interface.spec.ts](../../e2e/coach-interface.spec.ts). The implementation is built and self checked with explicit synthetic preview data. Lint, formatting, type checking, build and 144 unit checks pass. All 28 Chrome desktop and phone browser checks pass using the installed Chrome fallback. WebKit could not be installed because each download mirror timed out. Human screen reader, actual device, independent GA review and live Auth, database and voice evidence remain separate. No live account or provider operation was implemented by this foundation.
 
 * [x] Design the interface (spec): `/architect coach interface foundation`
 * [x] Resolve review decisions UI-1 through UI-4: pending action ownership, input locks, original phase transitions and voice provenance.
 * [ ] Build it: `/develop coach interface foundation`
-  * [ ] Establish visual values, semantic components, data router and one clearly labelled synthetic screen thread. AC-1, AC-2, AC-4, AC-14.
-  * [ ] Add paginated campaigns and roster, responsive player routes, shared tabs and safe loading states. AC-2, AC-3, AC-4, AC-9, AC-10, AC-13.
-  * [ ] Build editor, draft and submission interactions with own history, corrections and stage projections. AC-4, AC-5, AC-6, AC-7, AC-9, AC-11.
-  * [ ] Add navigation protection, conflict and pending action recovery, input locks, original phase transitions, actor isolation and voice provenance review. AC-5, AC-6, AC-7, AC-8, AC-9, AC-10, AC-11, AC-12, AC-13, AC-14.
+  * [x] Establish visual values, semantic components, data router and one clearly labelled synthetic screen thread. AC-1, AC-2, AC-4, AC-14.
+  * [x] Add paginated campaigns and roster, responsive player routes, shared tabs and safe loading states. AC-2, AC-3, AC-4, AC-9, AC-10, AC-13.
+  * [x] Build editor, draft and submission interactions with own history, corrections and stage projections. AC-4, AC-5, AC-6, AC-7, AC-9, AC-11.
+  * [x] Add navigation protection, conflict and pending action recovery, input locks, original phase transitions, actor isolation and voice provenance review. AC-5, AC-6, AC-7, AC-8, AC-9, AC-10, AC-11, AC-12, AC-13, AC-14.
   * [ ] Prove the scenario matrix, browser layouts and human accessibility, retaining honest fixture and live evidence boundaries. AC-1 through AC-14.
-* [ ] Verify it: `/check verify coach interface foundation`
+* [ ] Verify it: `/check verify coach interface foundation` (skipped at your request on 12 October 2026; no separate verification recorded).
 * [ ] Test it: `/test coach interface foundation`
 * [ ] Review it (fresh model): `/check review coach interface foundation`
 * [ ] Document it: `/document coach interface foundation`
@@ -165,14 +167,14 @@ Prove the whole thread using a minimal admin flow, one provisioned coach, one ca
 
 **Done when:** the real account, data store, access rules, server boundary and interface work together, the saved observation persists across sessions and another unauthorised account cannot access it, including through direct requests.
 
-**Spec:** [0005](../specs/0005-first-real-coach-feedback-path/index.md), design confirmed on 7 October 2026, including all eight independent review fixes. FP-1 through FP-8 are resolved. Implementation remains unstarted and requires separate authorisation.
+**Spec:** [0005](../specs/0005-first-real-coach-feedback-path/index.md), design confirmed on 7 October 2026, including all eight independent review fixes. FP-1 through FP-8 are resolved. Code in `src/app/accounts/`, `src/app/data/coach.ts`, `src/worker/accounts.ts`, `supabase/migrations/20261012*.sql` and `e2e/first-feedback.live.ts`. Built with your authorisation on 12 and 13 October 2026. The approved amendment preserves existing database lifecycle features. Separate GA verification, tests, review and release evidence remain open.
 
 * [x] Design the first path (spec): `/architect first real coach feedback path`
 * [ ] Build it: `/develop first real coach feedback path`
-  * [ ] Establish the local schema and private setup journal, prove Auth compatibility, then connect admin setup, password login and one real preparation submission with readback. AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-8, AC-9, AC-12, AC-13.
-  * [ ] Connect explicit draft saving, later resume, private history and repeat preparation submissions. AC-6, AC-7, AC-8, AC-9.
-  * [ ] Add account progress and recovery, safe replacement links, durable email attempts, exact conflicts and retry evidence. AC-2, AC-3, AC-4, AC-5, AC-9, AC-10, AC-12.
-  * [ ] Add real preparation freeze and draft purge, pending action recovery, current access guards and concurrency checks. AC-7, AC-9, AC-10, AC-11, AC-12.
+  * [x] Establish the local schema and private setup journal, prove Auth compatibility, then connect admin setup, password login and one real preparation submission with readback. AC-1, AC-2, AC-3, AC-4, AC-5, AC-6, AC-8, AC-9, AC-12, AC-13.
+  * [x] Connect explicit draft saving, later resume, private history and repeat preparation submissions. AC-6, AC-7, AC-8, AC-9.
+  * [x] Add account progress and recovery, safe replacement links, durable email attempts, exact conflicts and retry evidence. AC-2, AC-3, AC-4, AC-5, AC-9, AC-10, AC-12.
+  * [x] Add real preparation freeze and draft purge, pending action recovery, current access guards and concurrency checks. AC-7, AC-9, AC-10, AC-11, AC-12.
   * [ ] Complete preparation readiness with real local Auth, database and browser evidence, human accessibility checks and sanitised release records. AC-1 through AC-13.
 * [ ] Verify it: `/check verify first real coach feedback path`
 * [ ] Test it: `/test first real coach feedback path`

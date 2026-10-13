@@ -120,7 +120,7 @@ export const forbiddenCredentials = (env: NodeJS.ProcessEnv) =>
   Object.entries(env).some(
     ([name, value]) =>
       value &&
-      /^(MIGRATION_READ_|PRODUCTION_|ELEVENLABS_|SFDA_TEST_SUPABASE_|SUPABASE_SERVICE_ROLE_KEY|SUPABASE_ACCESS_TOKEN|CLOUDFLARE_API_TOKEN)/.test(
+      /^(MIGRATION_READ_|PRODUCTION_|ELEVENLABS_|SFDA_TEST_SUPABASE_|SUPABASE_SERVICE_ROLE_KEY|SUPABASE_ADMIN_KEY|SUPABASE_ACCESS_TOKEN|CLOUDFLARE_API_TOKEN)/.test(
         name,
       ),
   )

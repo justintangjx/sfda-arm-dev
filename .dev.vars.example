@@ -3,3 +3,4 @@
 # Blank values deliberately produce CONFIG_INVALID in the local profile.
 SUPABASE_URL=
 SUPABASE_PUBLIC_KEY=
+SUPABASE_ADMIN_KEY=

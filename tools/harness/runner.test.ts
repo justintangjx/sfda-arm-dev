@@ -49,6 +49,7 @@ const fixtureRoot = async (exitCode: number) => {
   for (const name of [
     '0002-fresh-data-model-access-rules',
     '0003-verification-harness-eval-contract',
+    '0005-first-real-coach-feedback-path',
   ]) {
     await mkdir(join(target, 'docs/specs', name), { recursive: true })
     await cp(
@@ -187,6 +188,12 @@ describe('compiled harness and real processes', () => {
   it('rejects unsafe credentials, remote local targets, traversal and malformed evidence before a pass', async () => {
     const { target, env } = await fixtureRoot(0)
     expect(
+      cli(target, { ...env, SUPABASE_ADMIN_KEY: 'fixture_value' }, [
+        '--checks',
+        'types',
+      ]).status,
+    ).toBe(2)
+    expect(
       cli(target, { ...env, ELEVENLABS_API_KEY: 'fixture_value' }, [
         '--checks',
         'types',
@@ -279,7 +286,7 @@ describe('compiled harness and real processes', () => {
     )
     await writeFile(
       join(fixture, 'retry.test.ts'),
-      "import {test,expect} from 'vitest';let attempts=0;test('retry fixture',()=>{attempts++;expect(attempts).toBe(2)})\n",
+      "import {test,expect} from 'vitest';let attempts=0;test('retry fixture',()=>{attempts++;if(attempts===1)throw new Error('private fixture sentinel');expect(attempts).toBe(2)})\n",
     )
     const output = join(fixture, 'attempts.json')
     const result = spawnSync(
@@ -315,9 +322,60 @@ describe('compiled harness and real processes', () => {
       'passed',
     ])
     expect(resultStatus(report.attempts)).toBe('flaky')
+    const summary = await readFile(`${output}.failure-summary.txt`, 'utf8')
+    expect(summary).toContain('retry fixture')
+    expect(summary).toContain('retry.test.ts')
+    expect(summary).toContain('attempt 1, ASSERTIONS_FAILED')
+    expect(summary).not.toContain('private fixture sentinel')
     expect(() =>
       validateRunnerOutput({ ...report, attempts: [report.attempts[1]] }, unit),
     ).toThrow()
+  })
+  it('writes named Playwright failures for every project and retry without exception payloads', async () => {
+    const fixture = join(root, '.verification/browser-reporter', randomUUID())
+    await mkdir(fixture, { recursive: true })
+    const browser = registry.checks.find((check) => check.id === 'browser')!
+    await writeFile(
+      join(fixture, 'playwright.config.ts'),
+      `export default {testDir:'.',retries:2,projects:${JSON.stringify(['chromium_desktop', 'chromium_mobile', 'webkit_desktop', 'webkit_mobile'].map((name) => ({ name })))}}\n`,
+    )
+    await writeFile(
+      join(fixture, 'failure.spec.ts'),
+      "import {test,expect} from '@playwright/test';test('synthetic browser failure',()=>{expect('private fixture sentinel').toBe('expected')})\n",
+    )
+    const output = join(fixture, 'attempts.json')
+    const result = spawnSync(
+      process.execPath,
+      [
+        join(root, 'node_modules/@playwright/test/cli.js'),
+        'test',
+        '--config',
+        join(fixture, 'playwright.config.ts'),
+        '--workers',
+        '1',
+        '--reporter',
+        join(compiled, 'playwright-reporter.js'),
+      ],
+      {
+        cwd: fixture,
+        env: { ...safeEnvironment(process.env), HARNESS_ATTEMPTS_FILE: output },
+        encoding: 'utf8',
+        timeout: 30000,
+      },
+    )
+    expect(result.status, result.stdout + result.stderr).toBe(1)
+    const report = validateRunnerOutput(
+      JSON.parse(await readFile(output, 'utf8')),
+      browser,
+    )
+    expect(report.attempts).toHaveLength(12)
+    const summary = await readFile(`${output}.failure-summary.txt`, 'utf8')
+    expect(summary).toContain('synthetic browser failure')
+    expect(summary).toContain('failure.spec.ts:1')
+    for (const project of report.browserProjects)
+      expect(summary).toContain(project)
+    expect(summary).toContain('attempt 3, ASSERTIONS_FAILED')
+    expect(summary).not.toContain('private fixture sentinel')
   })
   it('rejects symlink output and never overwrites a run', async () => {
     const target = await mkdtemp(join(tmpdir(), 'sfda-output-'))

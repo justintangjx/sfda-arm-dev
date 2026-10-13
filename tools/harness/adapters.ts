@@ -34,7 +34,12 @@ export const resultFor = (
     browserProjects: [],
     databaseTarget:
       attempts.length &&
-      ['database_preparation', 'database_campaign'].includes(check.id)
+      [
+        'database_preparation',
+        'database_campaign',
+        'database_accounts',
+        'browser_preparation',
+      ].includes(check.id)
         ? 'sfda_arm_dev_local'
         : null,
   },
@@ -82,12 +87,15 @@ export const validateRunnerOutput = (
       v.invalid()
   }
   if (
-    check.adapterId === 'browser' &&
+    ['browser', 'browser_preparation'].includes(check.adapterId) &&
     JSON.stringify([...output.browserProjects].sort()) !==
       JSON.stringify([...browserProjects].sort())
   )
     v.invalid()
-  if (check.adapterId !== 'browser' && output.browserProjects.length)
+  if (
+    !['browser', 'browser_preparation'].includes(check.adapterId) &&
+    output.browserProjects.length
+  )
     v.invalid()
   return output
 }
@@ -189,6 +197,13 @@ const localDatabaseEnvironment = async (
         SFDA_TEST_SUPABASE_URL: String(value.API_URL),
         SFDA_TEST_SUPABASE_PUBLIC_KEY: value.ANON_KEY,
         SFDA_TEST_SUPABASE_ADMIN_KEY: value.SERVICE_ROLE_KEY,
+        ...(typeof (value.MAILPIT_URL ?? value.INBUCKET_URL) === 'string'
+          ? {
+              SFDA_TEST_SUPABASE_MAIL_URL: String(
+                value.MAILPIT_URL ?? value.INBUCKET_URL,
+              ),
+            }
+          : {}),
       }
   }
   v.invalid()
@@ -267,13 +282,41 @@ export const executeCheck = async (
       ]
       runner = true
       break
-    case 'browser': {
+    case 'browser':
+    case 'browser_preparation': {
       const chromiumPath =
         context.env.PLAYWRIGHT_BROWSER_CHANNEL === 'chrome'
           ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
           : chromium.executablePath()
       if (!existsSync(chromiumPath) || !existsSync(webkit.executablePath()))
         return resultFor(check, 'missing', 'BROWSER_UNAVAILABLE')
+      if (check.adapterId === 'browser_preparation') {
+        const localEnv = await localDatabaseEnvironment(context)
+        if (!localEnv || !localEnv.SFDA_TEST_SUPABASE_MAIL_URL)
+          return resultFor(check, 'missing', 'LOCAL_DATABASE_UNAVAILABLE')
+        if (
+          !context.env.SFDA_LIVE_ADMIN_EMAIL ||
+          !context.env.SFDA_LIVE_ADMIN_PASSWORD
+        )
+          return resultFor(
+            check,
+            'missing',
+            'LOCAL_BOOTSTRAP_CREDENTIALS_MISSING',
+          )
+        env = {
+          ...localEnv,
+          HARNESS_ATTEMPTS_FILE: output,
+          SFDA_LIVE_ADMIN_EMAIL: context.env.SFDA_LIVE_ADMIN_EMAIL,
+          SFDA_LIVE_ADMIN_PASSWORD: context.env.SFDA_LIVE_ADMIN_PASSWORD,
+        }
+        args = [
+          'e2e:live',
+          '--reporter',
+          join(binDirectory, 'playwright-reporter.js'),
+        ]
+        runner = true
+        break
+      }
       args = [
         'exec',
         'playwright',
@@ -285,6 +328,7 @@ export const executeCheck = async (
       break
     }
     case 'database_preparation':
+    case 'database_accounts':
     case 'database_campaign': {
       const lock = join(context.root, '.verification/local-database.lock')
       try {
@@ -314,9 +358,16 @@ export const executeCheck = async (
         'run',
         '--config',
         config,
-        check.adapterId === 'database_preparation'
-          ? 'supabase/tests/preparation.test.ts'
-          : 'supabase/tests/final-lifecycle.test.ts',
+        ...(check.adapterId === 'database_preparation'
+          ? ['supabase/tests/preparation.test.ts']
+          : check.adapterId === 'database_accounts'
+            ? [
+                'supabase/tests/account-setup.test.ts',
+                'supabase/tests/auth-compatibility.test.ts',
+                'supabase/tests/worker-accounts.test.ts',
+                'supabase/tests/live-adapter.test.ts',
+              ]
+            : ['supabase/tests/final-lifecycle.test.ts']),
         '--retry',
         '2',
         '--testTimeout',
@@ -331,7 +382,11 @@ export const executeCheck = async (
       return resultFor(check, 'missing', 'ADAPTER_UNAVAILABLE')
   }
   const startedAt = new Date().toISOString()
-  if (runner && check.adapterId !== 'browser' && !args.includes('--config'))
+  if (
+    runner &&
+    !['browser', 'browser_preparation'].includes(check.adapterId) &&
+    !args.includes('--config')
+  )
     args = [...args, '--config', config]
   let processResult
   try {
@@ -400,13 +455,16 @@ export const executeCheck = async (
           : 'ASSERTIONS_PASSED',
     attempts,
   )
-  return check.adapterId === 'browser'
+  return ['browser', 'browser_preparation'].includes(check.adapterId)
     ? {
         ...result,
         execution: {
           runtime: 'workerd',
           browserProjects: outputValue.browserProjects,
-          databaseTarget: null,
+          databaseTarget:
+            check.adapterId === 'browser_preparation'
+              ? 'sfda_arm_dev_local'
+              : null,
         },
       }
     : result

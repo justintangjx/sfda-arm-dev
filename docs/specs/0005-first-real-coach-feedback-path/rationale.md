@@ -100,6 +100,10 @@ The source research ran during this design conversation. The links below are rec
 
 ## References
 
+### Database baseline amendment, 12 October 2026
+
+You chose to preserve the existing 0002 database features when implementation found that final submissions, waivers, corrections and closure were already present. Removing those features would undo established contracts and risk retained records. Feature 6 therefore connects preparation interfaces and evidence while preserving those database permissions. The independent amendment review identified one stale paragraph about absent correction reads, which was corrected to use the existing original and latest projection. No new provider or data model was selected.
+
 **Project sources**
 
 * [Scope feature 6](../../scope/scope.md), the first real coach feedback path and GA workflow.

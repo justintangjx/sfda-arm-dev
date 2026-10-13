@@ -13,6 +13,16 @@ export const createDataClient = (configuration: PublicConfiguration) => {
     configuration.supabaseUrl,
     configuration.supabasePublicKey,
     {
+      global: {
+        fetch: (input, init) =>
+          fetch(input, {
+            ...init,
+            signal: AbortSignal.any([
+              AbortSignal.timeout(10000),
+              ...(init?.signal ? [init.signal] : []),
+            ]),
+          }),
+      },
       auth: {
         persistSession: false,
         autoRefreshToken: true,
