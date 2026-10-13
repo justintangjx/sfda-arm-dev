@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { handleAccountRequest } from '../../src/worker/accounts.ts'
 import { checked, createFixture, object, type Identity } from './fixture.ts'
+import { expireEmailCooldown } from './sql.ts'
 
 afterEach(() => vi.restoreAllMocks())
 const requestAs = async (
@@ -36,7 +37,7 @@ const execute = async (
       supabasePublicKey: fixture.publicKey,
       voiceEnabled: false,
     },
-    process.env.SFDA_TEST_SUPABASE_ADMIN_KEY,
+    { SUPABASE_ADMIN_KEY: process.env.SFDA_TEST_SUPABASE_ADMIN_KEY },
     randomUUID(),
   )
   return { status: response.status, body: object(await response.json()) }
@@ -114,6 +115,7 @@ describe('Worker orchestration against actual local Auth and database (spec 0005
     expect(replay.status).toBe(202)
     expect(sends).toBe(1)
     intercept.mockRestore()
+    await expireEmailCooldown(String(operation.targetId))
     const replacement = await execute(
       await requestAs(
         fixture.secondAdmin,

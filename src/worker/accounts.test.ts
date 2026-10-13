@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import worker from './index'
-import { createPasswordLimiter } from './accounts'
+import { createPasswordLimiter } from './release'
 
 const local = {
   APP_ENV: 'local',

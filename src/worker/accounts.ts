@@ -1,217 +1,47 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import type { ApplicationDatabase } from '../domain/database.ts'
 import {
   isPositiveInteger,
   isUuid,
   normalizeEmail,
-  readAccess,
-  readSetupProof,
+  passwordLinkUrl,
   record,
-  validPassword,
 } from '../domain/accounts.js'
 import type { PublicConfiguration } from '../domain/configuration.ts'
-
-type Client = SupabaseClient<ApplicationDatabase>
-type Functions = ApplicationDatabase['public']['Functions']
-type Result<T> =
-  Readonly<{ ok: true; value: T }> | Readonly<{ ok: false; code: string }>
-const codes = [
-  'AUTH_REQUIRED',
-  'FORBIDDEN',
-  'NOT_FOUND',
-  'INVALID_INPUT',
-  'CONFIG_INVALID',
-  'EMAIL_EXISTS',
-  'SETUP_EXISTS',
-  'IDEMPOTENCY_CONFLICT',
-  'VERSION_CONFLICT',
-  'OPERATION_BUSY',
-  'RECONCILIATION_REQUIRED',
-  'ACCOUNT_DISABLED',
-  'ACCOUNT_SETUP_PENDING',
-  'LINK_INVALID',
-  'ACCOUNT_NOT_READY',
-  'OUTCOME_UNKNOWN',
-  'PROVIDER_UNAVAILABLE',
-  'RATE_LIMITED',
-] as const
-const safeCode = (value: unknown) =>
-  codes.find((code) => code === value) ?? 'PROVIDER_UNAVAILABLE'
-const fail = (code: string): Result<never> => ({ ok: false, code })
-const success = <T>(value: T): Result<T> => ({ ok: true, value })
-const invoke = async <Name extends keyof Functions>(
-  client: Client,
-  name: Name,
-  args: Functions[Name]['Args'],
-): Promise<Result<unknown>> => {
-  try {
-    const { data, error } = await client.rpc(name, args)
-    return error ? fail(safeCode(error.message)) : success(data)
-  } catch {
-    return fail('PROVIDER_UNAVAILABLE')
-  }
-}
-const response = (value: unknown, status = 200) =>
-  Response.json(value, {
-    status,
-    headers: { 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' },
-  })
-const statusFor = (code: string) =>
-  code === 'AUTH_REQUIRED'
-    ? 401
-    : code === 'FORBIDDEN'
-      ? 403
-      : code === 'NOT_FOUND'
-        ? 404
-        : code === 'INVALID_INPUT' || code === 'LINK_INVALID'
-          ? 422
-          : code === 'RATE_LIMITED'
-            ? 429
-            : [
-                  'OUTCOME_UNKNOWN',
-                  'PROVIDER_UNAVAILABLE',
-                  'CONFIG_INVALID',
-                ].includes(code)
-              ? 503
-              : 409
-const failure = (
-  code: string,
-  requestId: string,
-  extra: Readonly<Record<string, unknown>> = {},
-) => response({ code, requestId, ...extra }, statusFor(code))
-const client = (
-  config: PublicConfiguration,
-  key: string,
-  token: string | undefined = undefined,
-) =>
-  createClient<ApplicationDatabase>(config.supabaseUrl!, key, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
-    },
-    global: {
-      ...(token ? { headers: { Authorization: `Bearer ${token}` } } : {}),
-      fetch: (input, init) =>
-        fetch(input, { ...init, signal: AbortSignal.timeout(10000) }),
-    },
-  })
-const sha256 = async (bytes: Uint8Array) =>
-  Array.from(
-    new Uint8Array(
-      await crypto.subtle.digest('SHA-256', new Uint8Array(bytes).buffer),
-    ),
-    (byte) => byte.toString(16).padStart(2, '0'),
-  ).join('')
-const digestEmail = (email: string) => sha256(new TextEncoder().encode(email))
-const newCapability = () => {
-  const bytes = crypto.getRandomValues(new Uint8Array(32))
-  const encoded = btoa(String.fromCharCode(...bytes))
-    .replaceAll('+', '-')
-    .replaceAll('/', '_')
-    .replaceAll('=', '')
-  return { bytes, encoded }
-}
-const capabilityDigest = (value: string) =>
-  sha256(
-    Uint8Array.from(
-      atob(value.replaceAll('-', '+').replaceAll('_', '/') + '='),
-      (char) => char.charCodeAt(0),
-    ),
-  )
-const exactKeys = (body: Record<string, unknown>, keys: readonly string[]) =>
-  Object.keys(body).every((key) => keys.includes(key))
-const readBody = async (
-  request: Request,
-): Promise<Result<Record<string, unknown>>> => {
-  if (
-    !request.headers
-      .get('Content-Type')
-      ?.split(';')[0]
-      ?.trim()
-      .toLowerCase()
-      .includes('application/json')
-  )
-    return fail('INVALID_INPUT')
-  const reader = request.body?.getReader()
-  if (!reader) return fail('INVALID_INPUT')
-  const chunks: Uint8Array[] = []
-  let size = 0
-  try {
-    while (true) {
-      const next = await reader.read()
-      if (next.done) break
-      size += next.value.byteLength
-      if (size > 16384) {
-        await reader.cancel()
-        return fail('INVALID_INPUT')
-      }
-      chunks.push(next.value)
-    }
-    const bytes = new Uint8Array(size)
-    let offset = 0
-    for (const chunk of chunks) {
-      bytes.set(chunk, offset)
-      offset += chunk.byteLength
-    }
-    const value = record(
-      JSON.parse(
-        new TextDecoder('utf-8', { fatal: true, ignoreBOM: false }).decode(
-          bytes,
-        ),
-      ),
-    )
-    return value ? success(value) : fail('INVALID_INPUT')
-  } catch {
-    return fail('INVALID_INPUT')
-  }
-}
-
-export const accountRoute = (
-  method: string,
-  path: string,
-): string | undefined => {
-  if (method === 'POST' && path === '/api/accounts/setup-password')
-    return 'account_setup_password'
-  if (method === 'POST' && path === '/api/admin/accounts')
-    return 'account_create'
-  if (method === 'GET' && path === '/api/admin/account-operations')
-    return 'account_operations_list'
-  const match =
-    /^\/api\/admin\/account-operations\/([^/]+)(?:\/(resume|setup-link))?$/.exec(
-      path,
-    )
-  if (!match || !isUuid(match[1])) return undefined
-  return method === 'GET' && !match[2]
-    ? 'account_operation_read'
-    : method === 'POST' && match[2] === 'resume'
-      ? 'account_resume'
-      : method === 'POST' && match[2] === 'setup-link'
-        ? 'account_setup_link'
-        : undefined
-}
-
-// Temporary process protection. Both buckets discard their client discriminators.
-export const createPasswordLimiter = () => {
-  const buckets = new Map<string, { tokens: number; at: number }>()
-  const take = (key: string, capacity: number, now: number) => {
-    const prior = buckets.get(key) ?? { tokens: capacity, at: now }
-    const tokens = Math.min(
-      capacity,
-      prior.tokens + ((now - prior.at) * capacity) / 60000,
-    )
-    buckets.set(key, { tokens: tokens >= 1 ? tokens - 1 : tokens, at: now })
-    return tokens >= 1
-  }
-  return (discriminator: string, operation: string, now: number) => {
-    for (const [key, bucket] of buckets)
-      if (now - bucket.at > 120000) buckets.delete(key)
-    return (
-      take('global', 60, now) && take(`${discriminator}:${operation}`, 10, now)
-    )
-  }
-}
-const passwordLimiter = createPasswordLimiter()
+import {
+  authorize,
+  client,
+  currentAdmin,
+  digestEmail,
+  exactKeys,
+  fail,
+  failure,
+  invoke,
+  newCapability,
+  pageResponse,
+  readBody,
+  readPage,
+  response,
+  sha256,
+  success,
+  type AccountRuntime,
+  type Actor,
+  type Functions,
+  type LiveConfiguration,
+  type Result,
+} from './account-http.js'
+import { completePassword } from './password-links.js'
+import {
+  accountDetail,
+  listRecoveryOperations,
+  lookupAccount,
+  readRecoveryOperation,
+  requestAdminRecovery,
+  requestRecovery,
+} from './recovery.js'
+import {
+  openAccounts,
+  type AccountBindings,
+  type RouteClass,
+} from './release.js'
 
 type PrivateOperation = Readonly<{
   id: string
@@ -260,48 +90,11 @@ const privateOperation = (value: unknown): PrivateOperation | undefined => {
     attemptGeneration: item.email_attempt_generation ?? undefined,
   }
 }
-type Actor = Readonly<{ id: string; user: Client; service: Client }>
-const authorize = async (
-  request: Request,
-  config: PublicConfiguration,
-  adminKey: string,
-): Promise<Result<Actor>> => {
-  const authorization = request.headers.get('Authorization')
-  if (!authorization?.startsWith('Bearer ') || authorization.length > 16384)
-    return fail('AUTH_REQUIRED')
-  const token = authorization.slice(7)
-  const user = client(config, config.supabasePublicKey!, token)
-  try {
-    const identity = await user.auth.getUser(token)
-    if (identity.error || !identity.data.user) return fail('AUTH_REQUIRED')
-    const access = await invoke(user, 'get_my_access', {})
-    if (!access.ok) return access
-    const profile = readAccess(access.value)
-    if (
-      !profile ||
-      !profile.enabled ||
-      profile.role !== 'admin' ||
-      profile.id !== identity.data.user.id
-    )
-      return fail('FORBIDDEN')
-    return success({ id: profile.id, user, service: client(config, adminKey) })
-  } catch {
-    return fail('PROVIDER_UNAVAILABLE')
-  }
-}
-const currentAdmin = async (actor: Actor): Promise<Result<true>> => {
-  const result = await invoke(actor.user, 'get_my_access', {})
-  if (!result.ok) return result
-  const profile = readAccess(result.value)
-  return profile?.enabled && profile.role === 'admin' && profile.id === actor.id
-    ? success(true)
-    : fail('FORBIDDEN')
-}
 const drive = async (
   actor: Actor,
   operationId: string,
   email: string | undefined,
-  config: PublicConfiguration,
+  config: LiveConfiguration,
 ): Promise<Result<true>> => {
   let operation: PrivateOperation | undefined
   const load = async (): Promise<Result<true>> => {
@@ -423,17 +216,20 @@ const drive = async (
     if (!started.ok) return started
     const dispatching = await renew()
     if (!dispatching.ok) return dispatching
-    const redirect = new URL('/auth/setup', config.appOrigin)
-    redirect.searchParams.set('operationId', operation.id)
-    redirect.searchParams.set('generation', String(operation.generation))
-    redirect.searchParams.set('setupCapability', capability.encoded)
+    const redirect = passwordLinkUrl(
+      config.appOrigin,
+      'setup',
+      operation.id,
+      operation.generation,
+      capability.encoded,
+    )
     let accepted = false
     let unknown = false
     try {
       if (verifiedIdentity.data.user?.email_confirmed_at) {
         const result = await client(
           config,
-          config.supabasePublicKey!,
+          config.supabasePublicKey,
         ).auth.resetPasswordForEmail(verifiedEmail, {
           redirectTo: redirect.href,
         })
@@ -496,216 +292,78 @@ const drive = async (
   return success(true)
 }
 
-const passwordSetup = async (
-  request: Request,
-  body: Record<string, unknown>,
-  config: PublicConfiguration,
-  adminKey: string,
-  requestId: string,
-) => {
-  const proof = readSetupProof(body)
-  if (
-    !exactKeys(body, [
-      'operationId',
-      'generation',
-      'setupCapability',
-      'tokenHash',
-      'type',
-      'password',
-    ]) ||
-    !proof ||
-    !validPassword(body.password)
-  )
-    return failure('INVALID_INPUT', requestId)
-  if (
-    !passwordLimiter(
-      request.headers.get('CF-Connecting-IP') ?? 'local',
-      proof.operationId,
-      Date.now(),
-    )
-  )
-    return failure('RATE_LIMITED', requestId)
-  const service = client(config, adminKey)
-  const digest = await capabilityDigest(proof.setupCapability)
-  const args = {
-    operation_id: proof.operationId,
-    generation: proof.generation,
-    capability_digest: digest,
-  }
-  const context = await invoke(service, 'get_password_setup_context', args)
-  if (!context.ok) return failure(context.code, requestId)
-  const targetId = record(context.value)?.targetId
-  if (!isUuid(targetId)) return failure('LINK_INVALID', requestId)
-  const temporary = client(config, config.supabasePublicKey!)
-  let updating = false
-  try {
-    const verified = await temporary.auth.verifyOtp({
-      token_hash: proof.tokenHash,
-      type: proof.type,
-    })
-    if (
-      verified.error ||
-      verified.data.user?.id !== targetId ||
-      !verified.data.session
-    )
-      return failure('LINK_INVALID', requestId)
-    const current = await invoke(service, 'get_password_setup_context', args)
-    if (!current.ok || record(current.value)?.targetId !== targetId)
-      return failure(current.ok ? 'LINK_INVALID' : current.code, requestId)
-    updating = true
-    const updated = await temporary.auth.updateUser({ password: body.password })
-    if (updated.error || updated.data.user?.id !== targetId)
-      return failure('OUTCOME_UNKNOWN', requestId)
-    const recorded = await invoke(service, 'record_password_setup_result', {
-      ...args,
-      target_id: targetId,
-    })
-    return recorded.ok
-      ? response({ outcome: 'password_set' })
-      : failure('OUTCOME_UNKNOWN', requestId)
-  } catch {
-    return failure(updating ? 'OUTCOME_UNKNOWN' : 'LINK_INVALID', requestId)
-  } finally {
-    try {
-      await temporary.auth.signOut({ scope: 'local' })
-    } catch {
-      /* Discard the temporary session regardless. */
-    }
-  }
-}
+type Context = Readonly<{
+  runtime: AccountRuntime
+  request: Request
+  url: URL
+  id: string
+  body: Readonly<Record<string, unknown>>
+  requestId: string
+}>
+type Route = Readonly<{
+  label: string
+  method: 'GET' | 'POST'
+  path: RegExp
+  limit: RouteClass
+  handle: (context: Context) => Promise<Response>
+}>
 
-export const handleAccountRequest = async (
-  request: Request,
-  config: PublicConfiguration,
-  adminKey: unknown,
-  requestId: string,
-): Promise<Response> => {
-  if (config.appEnv !== 'local' || config.appOrigin !== 'http://127.0.0.1:5173')
-    return failure('FORBIDDEN', requestId)
-  if (
-    !config.supabaseUrl ||
-    !['127.0.0.1', 'localhost', '[::1]'].includes(
-      new URL(config.supabaseUrl).hostname,
-    ) ||
-    typeof adminKey !== 'string' ||
-    !adminKey.trim() ||
-    config.voiceEnabled
-  )
-    return failure('CONFIG_INVALID', requestId)
-  const origin = request.headers.get('Origin')
-  if (
-    (request.method !== 'GET' && origin !== config.appOrigin) ||
-    (origin !== null && origin !== config.appOrigin)
-  )
-    return failure('FORBIDDEN', requestId)
-  const url = new URL(request.url)
-  const route = accountRoute(request.method, url.pathname)
-  if (!route) return failure('NOT_FOUND', requestId)
-  const input =
-    request.method === 'POST'
-      ? await readBody(request)
-      : success({} as Record<string, unknown>)
-  if (!input.ok) return failure(input.code, requestId)
-  if (route === 'account_setup_password')
-    return passwordSetup(request, input.value, config, adminKey, requestId)
-  const actor = await authorize(request, config, adminKey)
-  if (!actor.ok) return failure(actor.code, requestId)
-  const body = input.value
-  const operationId = url.pathname.split('/')[4]
-  if (route === 'account_operation_read' && operationId) {
-    const result = await invoke(
-      actor.value.user,
-      'get_account_setup_progress',
-      { operation_id: operationId },
-    )
-    return result.ok ? response(result.value) : failure(result.code, requestId)
-  }
-  if (route === 'account_operations_list') {
-    const pageSize = url.searchParams.has('pageSize')
-      ? Number(url.searchParams.get('pageSize'))
-      : 20
-    let cursor: unknown = null
-    try {
-      if (url.searchParams.has('cursor'))
-        cursor = JSON.parse(atob(url.searchParams.get('cursor')!))
-    } catch {
-      return failure('INVALID_INPUT', requestId)
-    }
-    const item = record(cursor)
-    if (
-      !isPositiveInteger(pageSize) ||
-      pageSize > 100 ||
-      (cursor !== null &&
-        (!item || !isUuid(item.id) || typeof item.createdAt !== 'string'))
-    )
-      return failure('INVALID_INPUT', requestId)
-    const result = await invoke(
-      actor.value.user,
-      'list_account_setup_operations',
-      {
-        page_size: pageSize,
-        page_cursor:
-          cursor as Functions['list_account_setup_operations']['Args']['page_cursor'],
-      },
-    )
-    if (!result.ok) return failure(result.code, requestId)
-    const data = record(result.value)
-    return response({
-      ...data,
-      nextCursor: data?.nextCursor
-        ? btoa(JSON.stringify(data.nextCursor))
-        : null,
-    })
-  }
-  if (!isUuid(body.mutationId)) return failure('INVALID_INPUT', requestId)
-  let intent: Result<unknown>
-  let email: string | undefined
-  if (route === 'account_create') {
-    email = normalizeEmail(body.email)
-    const name =
-      typeof body.displayName === 'string' ? body.displayName.trim() : ''
-    if (
-      !exactKeys(body, ['mutationId', 'email', 'displayName', 'role']) ||
-      !email ||
-      Array.from(name).length < 1 ||
-      Array.from(name).length > 160 ||
-      (body.role !== 'coach' && body.role !== 'player')
-    )
-      return failure('INVALID_INPUT', requestId)
-    const fingerprint = await digestEmail(email)
-    intent = await invoke(actor.value.user, 'begin_account_setup', {
-      mutation_id: body.mutationId,
-      display_name: name,
-      role: body.role,
-      email_fingerprint: fingerprint,
-    })
-    if (
-      !intent.ok &&
-      (intent.code === 'EMAIL_EXISTS' || intent.code === 'SETUP_EXISTS')
-    ) {
-      const access = await currentAdmin(actor.value)
-      if (!access.ok) return failure(access.code, requestId)
-      const lookup = await invoke(
-        actor.value.service,
-        'lookup_setup_auth_identity',
-        { email_fingerprint: fingerprint },
+// 0005 provisioning, Resume and setup replacement share one intent then drive sequence.
+const setupRoute =
+  (kind: 'create' | 'resume' | 'replace') =>
+  async ({ runtime, request, id, body, requestId }: Context) => {
+    const actor = await authorize(request, runtime)
+    if (!actor.ok) return failure(actor.code, requestId)
+    if (!isUuid(body.mutationId)) return failure('INVALID_INPUT', requestId)
+    let intent: Result<unknown>
+    let email: string | undefined
+    if (kind === 'create') {
+      email = normalizeEmail(body.email)
+      const name =
+        typeof body.displayName === 'string' ? body.displayName.trim() : ''
+      if (
+        !exactKeys(body, ['mutationId', 'email', 'displayName', 'role']) ||
+        !email ||
+        Array.from(name).length < 1 ||
+        Array.from(name).length > 160 ||
+        (body.role !== 'coach' && body.role !== 'player')
       )
-      if (!lookup.ok) return failure(lookup.code, requestId)
-      const found = record(lookup.value)
-      const conflict =
-        intent.code === 'SETUP_EXISTS'
-          ? {
-              kind: 'existing_operation',
-              operationId: found?.operationId,
-              version: found?.operationVersion,
-            }
-          : found?.profile
-            ? { kind: 'existing_profile', profile: found.profile }
-            : { kind: 'auth_identity_unlinked' }
-      return failure(intent.code, requestId, { conflict })
-    }
-  } else if (operationId && isPositiveInteger(body.expectedVersion)) {
-    if (route === 'account_resume') {
+        return failure('INVALID_INPUT', requestId)
+      const fingerprint = await digestEmail(email)
+      intent = await invoke(actor.value.user, 'begin_account_setup', {
+        mutation_id: body.mutationId,
+        display_name: name,
+        role: body.role,
+        email_fingerprint: fingerprint,
+      })
+      if (
+        !intent.ok &&
+        (intent.code === 'EMAIL_EXISTS' || intent.code === 'SETUP_EXISTS')
+      ) {
+        const access = await currentAdmin(actor.value)
+        if (!access.ok) return failure(access.code, requestId)
+        const lookup = await invoke(
+          actor.value.service,
+          'lookup_setup_auth_identity',
+          { email_fingerprint: fingerprint },
+        )
+        if (!lookup.ok) return failure(lookup.code, requestId)
+        const found = record(lookup.value)
+        const conflict =
+          intent.code === 'SETUP_EXISTS'
+            ? {
+                kind: 'existing_operation',
+                operationId: found?.operationId,
+                version: found?.operationVersion,
+              }
+            : found?.profile
+              ? { kind: 'existing_profile', profile: found.profile }
+              : { kind: 'auth_identity_unlinked' }
+        return failure(intent.code, requestId, { conflict })
+      }
+    } else if (!isPositiveInteger(body.expectedVersion))
+      return failure('INVALID_INPUT', requestId)
+    else if (kind === 'resume') {
       if (
         !exactKeys(body, ['mutationId', 'expectedVersion', 'email']) ||
         (body.email !== undefined && !normalizeEmail(body.email))
@@ -713,7 +371,7 @@ export const handleAccountRequest = async (
         return failure('INVALID_INPUT', requestId)
       email = normalizeEmail(body.email)
       intent = await invoke(actor.value.user, 'claim_account_setup', {
-        operation_id: operationId,
+        operation_id: id,
         mutation_id: body.mutationId,
         expected_version: body.expectedVersion,
       })
@@ -721,47 +379,230 @@ export const handleAccountRequest = async (
       if (!exactKeys(body, ['mutationId', 'expectedVersion']))
         return failure('INVALID_INPUT', requestId)
       intent = await invoke(actor.value.user, 'begin_setup_link_replacement', {
-        parent_id: operationId,
+        parent_id: id,
         mutation_id: body.mutationId,
         expected_version: body.expectedVersion,
       })
     }
-  } else return failure('INVALID_INPUT', requestId)
-  if (!intent.ok) return failure(intent.code, requestId)
-  const committed = record(intent.value)
-  const id = record(committed?.operation)?.id
-  if (!isUuid(id)) return failure('RECONCILIATION_REQUIRED', requestId)
-  let driving: Result<true> = success(true)
-  if (committed?.outcome === 'committed') {
-    try {
-      driving = await drive(actor.value, id, email, config)
-    } catch {
-      driving = fail('PROVIDER_UNAVAILABLE')
+    if (!intent.ok) return failure(intent.code, requestId)
+    const committed = record(intent.value)
+    const operationId = record(committed?.operation)?.id
+    if (!isUuid(operationId))
+      return failure('RECONCILIATION_REQUIRED', requestId)
+    let driving: Result<true> = success(true)
+    if (committed?.outcome === 'committed') {
+      try {
+        driving = await drive(actor.value, operationId, email, runtime.config)
+      } catch {
+        driving = fail('PROVIDER_UNAVAILABLE')
+      }
     }
+    const progress = await invoke(
+      actor.value.user,
+      'get_account_setup_progress',
+      { operation_id: operationId },
+    )
+    if (!progress.ok) return failure(progress.code, requestId, { operationId })
+    const operation = record(progress.value)
+    if (
+      !driving.ok &&
+      !['OUTCOME_UNKNOWN', 'PROVIDER_UNAVAILABLE', 'EMAIL_COOLDOWN'].includes(
+        driving.code,
+      )
+    )
+      return failure(driving.code, requestId, { operationId })
+    return response(
+      {
+        operation: progress.value,
+        outcome: committed?.outcome,
+        ...(!driving.ok ? { code: driving.code, requestId } : {}),
+      },
+      operation?.checkpoint === 'ready'
+        ? committed?.outcome === 'already_committed' || kind !== 'create'
+          ? 200
+          : 201
+        : 202,
+    )
   }
-  const progress = await invoke(
+
+const listSetupOperations = async ({
+  runtime,
+  request,
+  url,
+  requestId,
+}: Context) => {
+  const page = readPage(url)
+  if (!page.ok) return failure(page.code, requestId)
+  const actor = await authorize(request, runtime)
+  if (!actor.ok) return failure(actor.code, requestId)
+  const result = await invoke(
     actor.value.user,
-    'get_account_setup_progress',
-    { operation_id: id },
-  )
-  if (!progress.ok)
-    return failure(progress.code, requestId, { operationId: id })
-  const operation = record(progress.value)
-  if (
-    !driving.ok &&
-    !['OUTCOME_UNKNOWN', 'PROVIDER_UNAVAILABLE'].includes(driving.code)
-  )
-    return failure(driving.code, requestId, { operationId: id })
-  return response(
+    'list_account_setup_operations',
     {
-      operation: progress.value,
-      outcome: committed?.outcome,
-      ...(!driving.ok ? { code: driving.code, requestId } : {}),
+      page_size: page.value.pageSize,
+      page_cursor: page.value
+        .cursor as Functions['list_account_setup_operations']['Args']['page_cursor'],
     },
-    operation?.checkpoint === 'ready'
-      ? committed?.outcome === 'already_committed' || route !== 'account_create'
-        ? 200
-        : 201
-      : 202,
   )
+  return result.ok
+    ? pageResponse(result.value)
+    : failure(result.code, requestId)
+}
+const readSetupOperation = async ({
+  runtime,
+  request,
+  id,
+  requestId,
+}: Context) => {
+  const actor = await authorize(request, runtime)
+  if (!actor.ok) return failure(actor.code, requestId)
+  const result = await invoke(actor.value.user, 'get_account_setup_progress', {
+    operation_id: id,
+  })
+  return result.ok ? response(result.value) : failure(result.code, requestId)
+}
+
+// The only account route list: fixed log label, request class and handler together.
+const routes: readonly Route[] = [
+  {
+    label: 'account_setup_password',
+    method: 'POST',
+    path: /^\/api\/accounts\/setup-password$/,
+    limit: 'proof',
+    handle: (c) => completePassword(c.runtime, 'setup', c.body, c.requestId),
+  },
+  {
+    label: 'recovery_password',
+    method: 'POST',
+    path: /^\/api\/accounts\/recovery-password$/,
+    limit: 'proof',
+    handle: (c) => completePassword(c.runtime, 'recovery', c.body, c.requestId),
+  },
+  {
+    label: 'recovery_request',
+    method: 'POST',
+    path: /^\/api\/accounts\/recovery$/,
+    limit: 'email',
+    handle: (c) => requestRecovery(c.runtime, c.body, c.requestId),
+  },
+  {
+    label: 'account_create',
+    method: 'POST',
+    path: /^\/api\/admin\/accounts$/,
+    limit: 'email',
+    handle: setupRoute('create'),
+  },
+  {
+    label: 'account_lookup',
+    method: 'POST',
+    path: /^\/api\/admin\/accounts\/lookup$/,
+    limit: 'write',
+    handle: (c) => lookupAccount(c.runtime, c.request, c.body, c.requestId),
+  },
+  {
+    label: 'account_detail',
+    method: 'GET',
+    path: /^\/api\/admin\/accounts\/([^/]+)$/,
+    limit: 'read',
+    handle: (c) => accountDetail(c.runtime, c.request, c.id, c.requestId),
+  },
+  {
+    label: 'admin_recovery_request',
+    method: 'POST',
+    path: /^\/api\/admin\/accounts\/([^/]+)\/recovery$/,
+    limit: 'email',
+    handle: (c) =>
+      requestAdminRecovery(c.runtime, c.request, c.id, c.body, c.requestId),
+  },
+  {
+    label: 'account_operations_list',
+    method: 'GET',
+    path: /^\/api\/admin\/account-operations$/,
+    limit: 'read',
+    handle: listSetupOperations,
+  },
+  {
+    label: 'account_operation_read',
+    method: 'GET',
+    path: /^\/api\/admin\/account-operations\/([^/]+)$/,
+    limit: 'read',
+    handle: readSetupOperation,
+  },
+  {
+    label: 'account_resume',
+    method: 'POST',
+    path: /^\/api\/admin\/account-operations\/([^/]+)\/resume$/,
+    limit: 'email',
+    handle: setupRoute('resume'),
+  },
+  {
+    label: 'account_setup_link',
+    method: 'POST',
+    path: /^\/api\/admin\/account-operations\/([^/]+)\/setup-link$/,
+    limit: 'email',
+    handle: setupRoute('replace'),
+  },
+  {
+    label: 'recovery_operations_list',
+    method: 'GET',
+    path: /^\/api\/admin\/recovery-operations$/,
+    limit: 'read',
+    handle: (c) =>
+      listRecoveryOperations(c.runtime, c.request, c.url, c.requestId),
+  },
+  {
+    label: 'recovery_operation_read',
+    method: 'GET',
+    path: /^\/api\/admin\/recovery-operations\/([^/]+)$/,
+    limit: 'read',
+    handle: (c) =>
+      readRecoveryOperation(c.runtime, c.request, c.id, c.requestId),
+  },
+]
+const match = (method: string, path: string) =>
+  routes
+    .map((route) => ({ route, found: route.path.exec(path) }))
+    .find(
+      ({ route, found }) =>
+        found &&
+        route.method === method &&
+        (found[1] === undefined || isUuid(found[1])),
+    )
+
+export const accountRoute = (
+  method: string,
+  path: string,
+): string | undefined => match(method, path)?.route.label
+
+export const handleAccountRequest = async (
+  request: Request,
+  config: PublicConfiguration,
+  bindings: AccountBindings,
+  requestId: string,
+  defer: AccountRuntime['defer'] = (work) => void work,
+): Promise<Response> => {
+  const url = new URL(request.url)
+  const matched = match(request.method, url.pathname)
+  if (!matched) return failure('NOT_FOUND', requestId)
+  const runtime = await openAccounts(
+    request,
+    config,
+    bindings,
+    matched.route.limit,
+    defer,
+  )
+  if (!runtime.ok) return failure(runtime.code, requestId)
+  const input =
+    request.method === 'POST'
+      ? await readBody(request)
+      : success({} as Record<string, unknown>)
+  if (!input.ok) return failure(input.code, requestId)
+  return matched.route.handle({
+    runtime: runtime.value,
+    request,
+    url,
+    id: matched.found?.[1] ?? '',
+    body: input.value,
+    requestId,
+  })
 }

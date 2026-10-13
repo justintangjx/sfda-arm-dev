@@ -31,13 +31,67 @@ export type AccountOperation = Readonly<{
   passwordSetupAt: string | null
   accessEnabled: boolean | null
 }>
-export type SetupProof = Readonly<{
+export type PasswordLinkKind = 'setup' | 'recovery'
+// Setup sequences are 0005 generations; recovery sequences are shared head revisions.
+export type PasswordLink = Readonly<{
+  kind: PasswordLinkKind
   operationId: string
-  generation: number
-  setupCapability: string
+  sequence: number
+  capability: string
   tokenHash: string
   type: 'invite' | 'recovery'
 }>
+export type RecoveryReason =
+  | 'requested_by_account_owner'
+  | 'link_missing_or_expired'
+  | 'after_access_restoration'
+export const recoveryReasons: Readonly<Record<RecoveryReason, string>> = {
+  requested_by_account_owner: 'Requested by the account owner',
+  link_missing_or_expired: 'Previous link missing or expired',
+  after_access_restoration: 'After access restoration',
+}
+export type SetupStatus =
+  | 'ready'
+  | 'pending'
+  | 'needs_reconciliation'
+  | 'not_tracked'
+  | 'not_applicable'
+export type AccountSummary = Readonly<{
+  id: string
+  displayName: string
+  role: AccountRole
+  enabled: boolean
+  version: number
+  createdAt: string
+  setupStatus: SetupStatus
+  passwordInitialized: boolean
+}>
+export type RecoveryStatus =
+  | 'reserved'
+  | 'started'
+  | 'accepted'
+  | 'unknown'
+  | 'failed'
+  | 'password_changed'
+export type RecoveryProgress = Readonly<{
+  id: string
+  targetId: string
+  targetName: string
+  targetRole: AccountRole
+  source: 'self_service' | 'admin'
+  requestedBy: string | null
+  reason: RecoveryReason | null
+  reasonLabel: string | null
+  status: RecoveryStatus
+  safeError: string | null
+  current: boolean
+  version: number
+  createdAt: string
+  updatedAt: string
+}>
+export type PasswordOutcome =
+  | Readonly<{ kind: 'changed'; sessions: 'refresh_revoked' | 'unknown' }>
+  | Readonly<{ kind: 'failed'; code: string }>
 export const record = (value: unknown): Record<string, unknown> | undefined =>
   value !== null && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -122,25 +176,183 @@ export const readOperation = (value: unknown): AccountOperation | undefined => {
     return undefined
   return item as AccountOperation
 }
-export const readSetupProof = (value: unknown): SetupProof | undefined => {
-  const item = record(value)
+// The only place that knows each link kind's page, API path and wire field names.
+const linkWire = {
+  setup: {
+    page: '/auth/setup',
+    api: '/api/accounts/setup-password',
+    sequence: 'generation',
+    capability: 'setupCapability',
+    types: ['invite', 'recovery'],
+  },
+  recovery: {
+    page: '/auth/recovery',
+    api: '/api/accounts/recovery-password',
+    sequence: 'revision',
+    capability: 'capability',
+    types: ['recovery'],
+  },
+} as const
+export const passwordLinkKinds: readonly PasswordLinkKind[] = [
+  'setup',
+  'recovery',
+]
+export const passwordLinkPage = (kind: PasswordLinkKind) => linkWire[kind].page
+export const passwordLinkApi = (kind: PasswordLinkKind) => linkWire[kind].api
+const readLink = (
+  kind: PasswordLinkKind,
+  operationId: unknown,
+  sequence: unknown,
+  capability: unknown,
+  tokenHash: unknown,
+  type: unknown,
+): PasswordLink | undefined => {
+  const types: readonly string[] = linkWire[kind].types
   if (
-    !item ||
-    !isUuid(item.operationId) ||
-    !isPositiveInteger(item.generation) ||
-    typeof item.setupCapability !== 'string' ||
-    !/^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$/.test(item.setupCapability) ||
-    typeof item.tokenHash !== 'string' ||
-    item.tokenHash.length < 1 ||
-    item.tokenHash.length > 1024 ||
-    (item.type !== 'invite' && item.type !== 'recovery')
+    !isUuid(operationId) ||
+    !isPositiveInteger(sequence) ||
+    typeof capability !== 'string' ||
+    !/^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$/.test(capability) ||
+    typeof tokenHash !== 'string' ||
+    tokenHash.length < 1 ||
+    tokenHash.length > 1024 ||
+    typeof type !== 'string' ||
+    !types.includes(type)
   )
     return undefined
   return {
-    operationId: item.operationId,
-    generation: item.generation,
-    setupCapability: item.setupCapability,
-    tokenHash: item.tokenHash,
-    type: item.type,
+    kind,
+    operationId,
+    sequence,
+    capability,
+    tokenHash,
+    type: type as PasswordLink['type'],
   }
+}
+export const passwordLinkUrl = (
+  origin: string,
+  kind: PasswordLinkKind,
+  operationId: string,
+  sequence: number,
+  capability: string,
+): URL => {
+  const url = new URL(linkWire[kind].page, origin)
+  url.searchParams.set('operationId', operationId)
+  url.searchParams.set(linkWire[kind].sequence, String(sequence))
+  url.searchParams.set(linkWire[kind].capability, capability)
+  return url
+}
+export const readPasswordLinkUrl = (url: URL): PasswordLink | undefined => {
+  const kind = passwordLinkKinds.find(
+    (candidate) => linkWire[candidate].page === url.pathname,
+  )
+  if (!kind) return undefined
+  const sequence = url.searchParams.get(linkWire[kind].sequence)
+  return readLink(
+    kind,
+    url.searchParams.get('operationId'),
+    sequence === null || !/^[1-9][0-9]{0,15}$/.test(sequence)
+      ? undefined
+      : Number(sequence),
+    url.searchParams.get(linkWire[kind].capability),
+    url.searchParams.get('token_hash'),
+    url.searchParams.get('type'),
+  )
+}
+export const passwordLinkBody = (link: PasswordLink, password: string) => ({
+  operationId: link.operationId,
+  [linkWire[link.kind].sequence]: link.sequence,
+  [linkWire[link.kind].capability]: link.capability,
+  tokenHash: link.tokenHash,
+  type: link.type,
+  password,
+})
+export const readPasswordLinkBody = (
+  kind: PasswordLinkKind,
+  value: unknown,
+): Readonly<{ link: PasswordLink; password: string }> | undefined => {
+  const item = record(value)
+  const keys = [
+    'operationId',
+    linkWire[kind].sequence,
+    linkWire[kind].capability,
+    'tokenHash',
+    'type',
+    'password',
+  ]
+  if (
+    !item ||
+    Object.keys(item).length !== keys.length ||
+    !keys.every((key) => key in item) ||
+    !validPassword(item.password)
+  )
+    return undefined
+  const link = readLink(
+    kind,
+    item.operationId,
+    item[linkWire[kind].sequence],
+    item[linkWire[kind].capability],
+    item.tokenHash,
+    item.type,
+  )
+  return link ? { link, password: item.password } : undefined
+}
+export const isRecoveryReason = (value: unknown): value is RecoveryReason =>
+  typeof value === 'string' && value in recoveryReasons
+export const readAccountSummary = (
+  value: unknown,
+): AccountSummary | undefined => {
+  const item = record(value)
+  const access = readAccess(item)
+  if (
+    !item ||
+    !access ||
+    typeof item.createdAt !== 'string' ||
+    ![
+      'ready',
+      'pending',
+      'needs_reconciliation',
+      'not_tracked',
+      'not_applicable',
+    ].includes(String(item.setupStatus)) ||
+    typeof item.passwordInitialized !== 'boolean'
+  )
+    return undefined
+  return {
+    ...access,
+    createdAt: item.createdAt,
+    setupStatus: item.setupStatus as SetupStatus,
+    passwordInitialized: item.passwordInitialized,
+  }
+}
+export const readRecoveryProgress = (
+  value: unknown,
+): RecoveryProgress | undefined => {
+  const item = record(value)
+  if (
+    !item ||
+    !isUuid(item.id) ||
+    !isUuid(item.targetId) ||
+    typeof item.targetName !== 'string' ||
+    !['admin', 'coach', 'player'].includes(String(item.targetRole)) ||
+    !['self_service', 'admin'].includes(String(item.source)) ||
+    !(item.requestedBy === null || isUuid(item.requestedBy)) ||
+    !(item.reason === null || isRecoveryReason(item.reason)) ||
+    !(item.reasonLabel === null || typeof item.reasonLabel === 'string') ||
+    ![
+      'reserved',
+      'started',
+      'accepted',
+      'unknown',
+      'failed',
+      'password_changed',
+    ].includes(String(item.status)) ||
+    !(item.safeError === null || typeof item.safeError === 'string') ||
+    typeof item.current !== 'boolean' ||
+    !isPositiveInteger(item.version) ||
+    typeof item.createdAt !== 'string' ||
+    typeof item.updatedAt !== 'string'
+  )
+    return undefined
+  return item as RecoveryProgress
 }

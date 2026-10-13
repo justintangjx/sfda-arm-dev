@@ -2,11 +2,14 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, Navigate } from 'react-router'
 import {
   isUuid,
+  passwordLinkApi,
+  passwordLinkBody,
   readAccess,
   readOperation,
   record,
   validPassword,
   type AccountOperation,
+  type PasswordLinkKind,
 } from '../../domain/accounts'
 import {
   executeMutation,
@@ -18,58 +21,62 @@ import { useRuntime } from '../coach/runtime'
 import { AsyncState } from '../coach/components'
 import styles from '../coach/coach.module.css'
 import layout from './accounts.module.css'
+import { field as value, friendly, useWorkerApi } from '../admin/actions'
 
-const messages: Readonly<Record<string, string>> = {
-  EMAIL_EXISTS:
-    'This account already exists. You can select its enabled application profile for assignments.',
-  SETUP_EXISTS:
-    'An account setup operation already reserves this email. You can resume that operation.',
-  OPERATION_BUSY:
-    'A setup operation is running. You can refresh its progress shortly.',
-  VERSION_CONFLICT:
-    'This record changed. Refresh its current state before trying again.',
-  RECONCILIATION_REQUIRED:
-    'Setup needs reconciliation. You can refresh its progress and resume it explicitly.',
-  OUTCOME_UNKNOWN:
-    'The outcome is unknown. Check current progress before beginning another action.',
-  PROVIDER_UNAVAILABLE:
-    'The account service is unavailable. You can inspect progress and resume later.',
-  FORBIDDEN: 'This action is no longer available to your account.',
-  ACCOUNT_DISABLED:
-    'This account is disabled. A replacement setup link is unavailable.',
-  PAIR_CONFLICT:
-    'This coach and player already belong to another campaign for this competition.',
-  NAME_CONFLICT: 'That name is already in use.',
-}
-const friendly = (code: unknown) =>
-  typeof code === 'string'
-    ? (messages[code] ??
-      'The action could not be completed. You can refresh and check current records.')
-    : 'The action could not be confirmed. You can check current progress.'
-const value = (form: FormData, name: string) =>
-  String(form.get(name) ?? '').trim()
+const linkCopy = {
+  setup: {
+    eyebrow: 'Your account is prepared by your admin',
+    heading: 'Choose your password.',
+    title: 'Set password',
+    busy: 'Setting password…',
+    outcome: 'password_set',
+    success: 'Your password is set. You can sign in now.',
+    fallback: 'If that fails, you can ask your admin for a replacement link.',
+    invalid:
+      'This setup link is unavailable or has expired. You can ask your admin for a replacement.',
+  },
+  recovery: {
+    eyebrow: 'Password recovery',
+    heading: 'Choose a new password.',
+    title: 'Change password',
+    busy: 'Changing password…',
+    outcome: 'password_changed',
+    success: 'Your password is changed. You can sign in with it now.',
+    fallback: 'If that fails, you can request a new password link.',
+    invalid:
+      'This password link is unavailable, already used or replaced by a newer link. You can request a new one.',
+  },
+} as const
+const acknowledgment =
+  'If this account is eligible, check your email for a password link.'
 
-export function SetupPassword() {
+export function PasswordLinkScreen({
+  kind,
+}: Readonly<{ kind: PasswordLinkKind }>) {
   const runtime = useRuntime()
-  const [proof, setProof] = useState(runtime.setupProof)
+  const copy = linkCopy[kind]
+  const [link, setLink] = useState(
+    runtime.passwordLink?.kind === kind ? runtime.passwordLink : undefined,
+  )
   const [busy, setBusy] = useState(false)
   const [status, setStatus] = useState<
     'form' | 'success' | 'unknown' | 'invalid'
-  >(proof ? 'form' : 'invalid')
+  >(link ? 'form' : 'invalid')
+  const [sessions, setSessions] = useState<string | undefined>(undefined)
   const [error, setError] = useState('')
   const alive = useRef(true)
   useEffect(() => {
     alive.current = true
-    document.title = 'Set password | SFDA Coaches'
+    document.title = `${copy.title} | SFDA Coaches`
     return () => {
       alive.current = false
     }
-  }, [])
+  }, [copy.title])
   return (
     <div className={styles.login}>
       <section className={styles.loginCopy}>
-        <p className={styles.eyebrow}>Your account is prepared by your admin</p>
-        <h1>Choose your password.</h1>
+        <p className={styles.eyebrow}>{copy.eyebrow}</p>
+        <h1>{copy.heading}</h1>
         <p>
           You can use a password manager and paste your password. Your password
           stays private.
@@ -80,34 +87,43 @@ export function SetupPassword() {
         </p>
       </section>
       <section className={styles.card}>
-        <h2>Set password</h2>
+        <h2>{copy.title}</h2>
         {status === 'success' ? (
           <>
-            <p role="status">Your password is set. You can sign in now.</p>
+            <p role="status">{copy.success}</p>
+            {kind === 'recovery' && (
+              <p>
+                {sessions === 'refresh_revoked'
+                  ? 'Other signed in devices are signed out when their current session ends, within 15 minutes.'
+                  : 'Other devices may stay signed in until their session ends. You can sign out on them.'}
+              </p>
+            )}
             <Link to="/login">Go to sign in</Link>
           </>
         ) : status === 'unknown' ? (
           <>
             <p role="alert">
-              The password result is unknown. Try logging in with the password
-              you chose, then ask your admin for a replacement if that fails.
+              The password result is unknown. Try signing in with the password
+              you chose. {copy.fallback}
             </p>
             <Link to="/login">Try signing in</Link>
           </>
-        ) : status === 'invalid' || runtime.configuration.appEnv !== 'local' ? (
+        ) : status === 'invalid' ||
+          runtime.configuration.appEnv === 'preview' ? (
           <>
-            <p role="alert">
-              This setup link is unavailable or has expired. You can ask your
-              admin for a replacement.
-            </p>
-            <Link to="/login">Go to sign in</Link>
+            <p role="alert">{copy.invalid}</p>
+            {kind === 'recovery' ? (
+              <Link to="/forgot-password">Request a new password link</Link>
+            ) : (
+              <Link to="/login">Go to sign in</Link>
+            )}
           </>
         ) : (
           <form
             className={styles.form}
             onSubmit={(event) => {
               event.preventDefault()
-              if (busy || !proof) return
+              if (busy || !link) return
               const form = new FormData(event.currentTarget)
               const password = form.get('password')
               const confirmation = form.get('confirmation')
@@ -123,23 +139,28 @@ export function SetupPassword() {
               }
               setBusy(true)
               setError('')
-              const body = { ...proof, password }
+              const body = passwordLinkBody(link, password)
               event.currentTarget.reset()
-              void fetch('/api/accounts/setup-password', {
+              void fetch(passwordLinkApi(kind), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body),
                 cache: 'no-store',
               })
                 .then(async (response) => {
-                  const result: unknown = await response.json()
+                  const result = record(await response.json())
                   if (!alive.current) return
                   setBusy(false)
-                  setProof(undefined)
+                  setLink(undefined)
+                  setSessions(
+                    typeof result?.sessions === 'string'
+                      ? result.sessions
+                      : undefined,
+                  )
                   setStatus(
-                    response.ok && record(result)?.outcome === 'password_set'
+                    response.ok && result?.outcome === copy.outcome
                       ? 'success'
-                      : record(result)?.code === 'OUTCOME_UNKNOWN' ||
+                      : result?.code === 'OUTCOME_UNKNOWN' ||
                           response.status >= 500
                         ? 'unknown'
                         : 'invalid',
@@ -148,7 +169,7 @@ export function SetupPassword() {
                 .catch(() => {
                   if (alive.current) {
                     setBusy(false)
-                    setProof(undefined)
+                    setLink(undefined)
                     setStatus('unknown')
                   }
                 })
@@ -186,7 +207,7 @@ export function SetupPassword() {
               </p>
             )}
             <button className={styles.primary} disabled={busy}>
-              {busy ? 'Setting password…' : 'Set password'}
+              {busy ? copy.busy : copy.title}
             </button>
           </form>
         )}
@@ -195,16 +216,157 @@ export function SetupPassword() {
   )
 }
 
+export function ForgotPassword() {
+  const runtime = useRuntime()
+  const [attempt, setAttempt] = useState<
+    Readonly<{ requestId: string; email: string }> | undefined
+  >(undefined)
+  const [state, setState] = useState<'form' | 'busy' | 'sent'>('form')
+  const [error, setError] = useState('')
+  const [canRepeat, setCanRepeat] = useState(false)
+  const alive = useRef(true)
+  useEffect(() => {
+    alive.current = true
+    document.title = 'Forgot password | SFDA Coaches'
+    return () => {
+      alive.current = false
+    }
+  }, [])
+  useEffect(() => {
+    if (state !== 'sent') return
+    const timer = setTimeout(() => setCanRepeat(true), 60000)
+    return () => clearTimeout(timer)
+  }, [state])
+  return (
+    <div className={styles.login}>
+      <section className={styles.loginCopy}>
+        <p className={styles.eyebrow}>Password help</p>
+        <h1>Get a password link.</h1>
+        <p>
+          Enter the email you sign in with. You can then choose a new password
+          from the emailed link.
+        </p>
+        <p className={styles.support}>
+          A new link replaces any older password link for your account.
+        </p>
+      </section>
+      <section className={styles.card}>
+        <h2>Forgot password</h2>
+        {runtime.configuration.appEnv === 'preview' ? (
+          <p role="status">
+            Preview has no real accounts. Password links are unavailable.
+          </p>
+        ) : state === 'sent' ? (
+          <>
+            <p role="status">{acknowledgment}</p>
+            {canRepeat && (
+              <button
+                type="button"
+                onClick={() => {
+                  setAttempt(undefined)
+                  setCanRepeat(false)
+                  setState('form')
+                }}
+              >
+                Request another link
+              </button>
+            )}
+          </>
+        ) : (
+          <form
+            className={styles.form}
+            onSubmit={(event) => {
+              event.preventDefault()
+              if (state === 'busy') return
+              const email = String(
+                new FormData(event.currentTarget).get('email') ?? '',
+              ).trim()
+              // The same request ID is retried until the server acknowledges it.
+              const current =
+                attempt?.email === email
+                  ? attempt
+                  : { requestId: crypto.randomUUID(), email }
+              setAttempt(current)
+              setState('busy')
+              setError('')
+              void fetch('/api/accounts/recovery', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(current),
+                cache: 'no-store',
+              })
+                .then((response) => {
+                  if (!alive.current) return
+                  if (response.status === 202) {
+                    setState('sent')
+                    return
+                  }
+                  setState('form')
+                  setError(
+                    response.status === 422
+                      ? 'Enter the email address you sign in with.'
+                      : response.status === 429
+                        ? 'Too many requests. You can try again in a minute.'
+                        : 'The request could not be confirmed. You can try again.',
+                  )
+                })
+                .catch(() => {
+                  if (!alive.current) return
+                  setState('form')
+                  setError(
+                    'The request could not be confirmed. Check your connection and try again.',
+                  )
+                })
+            }}
+          >
+            <div>
+              <label htmlFor="recovery-email">Email</label>
+              <input
+                id="recovery-email"
+                name="email"
+                type="email"
+                autoComplete="username"
+                required
+                disabled={state === 'busy'}
+                aria-describedby={error ? 'recovery-error' : undefined}
+              />
+            </div>
+            {error && (
+              <p id="recovery-error" role="alert">
+                {error}
+              </p>
+            )}
+            <button className={styles.primary} disabled={state === 'busy'}>
+              {state === 'busy' ? 'Requesting…' : 'Email me a password link'}
+            </button>
+          </form>
+        )}
+        <Link to="/login">Back to sign in</Link>
+      </section>
+    </div>
+  )
+}
+
 export function AccountStatus() {
   const runtime = useRuntime()
+  const [email, setEmail] = useState<string | undefined>(undefined)
   useEffect(() => {
     document.title = 'Your account | SFDA Coaches'
   }, [])
+  useEffect(() => {
+    let current = true
+    void runtime.dataClient?.auth.getSession().then(({ data }) => {
+      if (current) setEmail(data.session?.user.email)
+    })
+    return () => {
+      current = false
+    }
+  }, [runtime.dataClient])
   if (!runtime.access) return <Navigate to="/login" replace />
   if (runtime.access.role !== 'player')
     return (
       <Navigate
-        to={runtime.access.role === 'admin' ? '/admin/setup' : '/coach'}
+        to={runtime.access.role === 'admin' ? '/admin/accounts' : '/coach'}
         replace
       />
     )
@@ -216,24 +378,19 @@ export function AccountStatus() {
         Your account access is enabled. A player portal is not available in this
         release.
       </p>
+      {email && <p>You sign in with {email}.</p>}
       <p className={styles.support}>
         You can contact your admin if your account needs attention.
       </p>
-      <button onClick={runtime.signOut}>Sign out</button>
+      <div className={styles.actions}>
+        <Link to="/forgot-password">Change password</Link>
+        <button onClick={runtime.signOut}>Sign out</button>
+      </div>
     </section>
   )
 }
 export function AdminSetup() {
   const runtime = useRuntime()
-  if (!runtime.access || !runtime.dataClient)
-    return <Navigate to="/login" replace />
-  if (runtime.access.role !== 'admin')
-    return (
-      <Navigate
-        to={runtime.access.role === 'player' ? '/account' : '/coach'}
-        replace
-      />
-    )
   if (runtime.configuration.appEnv !== 'local')
     return (
       <AsyncState title="Account setup unavailable">
@@ -304,35 +461,7 @@ function AdminWorkspace() {
   >(undefined)
   const alive = useRef(true)
   const selectedCampaign = campaigns.find((item) => item.id === campaignId)
-  const api = useCallback(
-    async (path: string, body: unknown = undefined) => {
-      const current = await client.auth.getSession()
-      if (!current.data.session)
-        return { ok: false, status: 401, body: { code: 'AUTH_REQUIRED' } }
-      try {
-        const result = await fetch(path, {
-          method: body === undefined ? 'GET' : 'POST',
-          headers: {
-            Authorization: `Bearer ${current.data.session.access_token}`,
-            ...(body === undefined
-              ? {}
-              : { 'Content-Type': 'application/json' }),
-          },
-          ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-          cache: 'no-store',
-        })
-        const data: unknown = await result.json()
-        return {
-          ok: result.ok,
-          status: result.status,
-          body: record(data) ?? { code: 'PROVIDER_UNAVAILABLE' },
-        }
-      } catch {
-        return { ok: false, status: 503, body: { code: 'OUTCOME_UNKNOWN' } }
-      }
-    },
-    [client],
-  )
+  const api = useWorkerApi()
   const loadOperations = useCallback(
     async (cursor: string | undefined = undefined) => {
       const result = await api(

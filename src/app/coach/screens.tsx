@@ -55,7 +55,7 @@ export function CoachShell() {
             className={styles.wordmark}
             to={
               runtime.access?.role === 'admin'
-                ? '/admin/setup'
+                ? '/admin/accounts'
                 : runtime.access?.role === 'player'
                   ? '/account'
                   : '/coach'
@@ -90,10 +90,13 @@ function AccountControls() {
   const [signOutOpen, setSignOutOpen] = useState(false)
   const attempt = useRef(0)
   const location = useLocation()
+  const unsaved = Boolean(
+    state.pending || (state.editor && dirty(state.editor)),
+  )
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
       currentLocation.pathname !== nextLocation.pathname &&
-      Boolean(state.pending || (state.editor && dirty(state.editor))),
+      (unsaved || runtime.formDirty),
   )
   useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => {
@@ -118,6 +121,7 @@ function AccountControls() {
     }
   }, [refreshAccess, refresh])
   useEffect(() => {
+    if (!location.pathname.startsWith('/coach')) return
     document.title = location.pathname.includes('/players/')
       ? 'Player feedback | SFDA Coaches'
       : location.pathname.includes('/campaigns/')
@@ -159,7 +163,28 @@ function AccountControls() {
           Sign out
         </button>
       </div>
-      {(blocker.state === 'blocked' || signOutOpen) && (
+      {blocker.state === 'blocked' && !unsaved && !signOutOpen && (
+        <Dialog title="Discard unsaved changes?" close={close}>
+          <p>Your unsaved form input is held only in this tab.</p>
+          <div className={styles.actions}>
+            <button type="button" data-safe-focus onClick={close}>
+              Stay
+            </button>
+            <button
+              type="button"
+              className={styles.danger}
+              onClick={() => {
+                attempt.current++
+                runtime.setFormDirty(false)
+                blocker.proceed()
+              }}
+            >
+              Discard
+            </button>
+          </div>
+        </Dialog>
+      )}
+      {((blocker.state === 'blocked' && unsaved) || signOutOpen) && (
         <Dialog
           title={
             state.pending
@@ -313,7 +338,7 @@ export function Login() {
               if (result.ok)
                 navigate(
                   result.value.role === 'admin'
-                    ? '/admin/setup'
+                    ? '/admin/accounts'
                     : result.value.role === 'player'
                       ? '/account'
                       : '/coach',
@@ -372,6 +397,9 @@ export function Login() {
               ? 'Preview does not accept real credentials. Open the sample workspace below.'
               : 'Use the password you chose from your account setup email.'}
           </p>
+          {runtime.configuration.appEnv !== 'preview' && (
+            <Link to="/forgot-password">Forgot password?</Link>
+          )}
           {runtime.configuration.appEnv === 'preview' && (
             <button
               type="button"
@@ -394,7 +422,7 @@ export function RequireCoach() {
   if (runtime.access && runtime.access.role !== 'coach')
     return (
       <Navigate
-        to={runtime.access.role === 'admin' ? '/admin/setup' : '/account'}
+        to={runtime.access.role === 'admin' ? '/admin/accounts' : '/account'}
         replace
       />
     )

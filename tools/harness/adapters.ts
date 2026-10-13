@@ -366,6 +366,8 @@ export const executeCheck = async (
                 'supabase/tests/auth-compatibility.test.ts',
                 'supabase/tests/worker-accounts.test.ts',
                 'supabase/tests/live-adapter.test.ts',
+                'supabase/tests/account-operations.test.ts',
+                'supabase/tests/worker-recovery.test.ts',
               ]
             : ['supabase/tests/final-lifecycle.test.ts']),
         '--retry',

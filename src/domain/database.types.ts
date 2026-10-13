@@ -313,14 +313,35 @@ isOneToOne: false
                 }
           }
           Functions: {
-            "admin_list_profiles":
+            "admin_find_account":
+{ Args: { "email_fingerprint": string }; Returns: Json
+                           },
+"admin_get_account":
+{ Args: { "profile_id": string }; Returns: Json
+                           },
+"admin_get_recovery_operation":
+{ Args: { "operation_id": string }; Returns: Json
+                           },
+"admin_list_accounts":
+{ Args: { "enabled_filter"?: boolean,"name_query"?: string,"page_cursor"?: Json,"page_size"?: number,"role_filter"?: Database["public"]['Enums']["account_role"] }; Returns: Json
+                           },
+"admin_list_profiles":
 { Args: { "page_cursor"?: Json,"page_size"?: number,"role_filter"?: Database["public"]['Enums']["account_role"] }; Returns: Json
+                           },
+"admin_list_recovery_operations":
+{ Args: { "page_cursor"?: Json,"page_size"?: number,"target_profile_id"?: string }; Returns: Json
                            },
 "advance_campaign_stage":
 { Args: { "campaign_id": string,"expected_version": number,"mutation_id": string,"next_stage": Database["public"]['Enums']["campaign_stage"],"reason": string }; Returns: Json
                            },
 "begin_account_setup":
 { Args: { "display_name": string,"email_fingerprint": string,"mutation_id": string,"role": Database["public"]['Enums']["account_role"] }; Returns: Json
+                           },
+"begin_admin_recovery":
+{ Args: { "expected_profile_version": number,"mutation_id": string,"profile_id": string,"reason": string }; Returns: Json
+                           },
+"begin_public_recovery":
+{ Args: { "email_fingerprint": string,"request_id": string,"target_id": string }; Returns: Json
                            },
 "begin_setup_link_replacement":
 { Args: { "expected_version": number,"mutation_id": string,"parent_id": string }; Returns: Json
@@ -364,14 +385,23 @@ isOneToOne: false
 "get_password_setup_context":
 { Args: { "capability_digest": string,"generation": number,"operation_id": string }; Returns: Json
                            },
+"get_recovery_password_context":
+{ Args: { "capability_digest": string,"operation_id": string,"revision": number }; Returns: Json
+                           },
 "get_worker_account_setup":
 { Args: { "actor_id": string,"operation_id": string }; Returns: Json
+                           },
+"get_worker_recovery_context":
+{ Args: { "actor_id"?: string,"operation_id": string }; Returns: Json
                            },
 "list_account_setup_operations":
 { Args: { "page_cursor"?: Json,"page_size"?: number }; Returns: Json
                            },
 "list_final_obligations":
 { Args: { "campaign_id": string,"page_cursor"?: Json,"page_size"?: number,"status_filter"?: string }; Returns: Json
+                           },
+"lookup_recovery_identity":
+{ Args: { "email_fingerprint": string }; Returns: Json
                            },
 "lookup_setup_auth_identity":
 { Args: { "email_fingerprint"?: string,"planned_id"?: string }; Returns: Json
@@ -381,6 +411,15 @@ isOneToOne: false
                            },
 "record_password_setup_result":
 { Args: { "capability_digest": string,"generation": number,"operation_id": string,"target_id": string }; Returns: Json
+                           },
+"record_recovery_outcome":
+{ Args: { "attempt_id": string,"claim_id": string,"operation_id": string,"outcome": string }; Returns: Json
+                           },
+"record_recovery_password_result":
+{ Args: { "capability_digest": string,"operation_id": string,"result": string,"revision": number,"target_id": string }; Returns: Json
+                           },
+"record_setup_sessions_revoked":
+{ Args: { "capability_digest": string,"operation_id": string,"target_id": string }; Returns: Json
                            },
 "renew_account_setup_claim":
 { Args: { "actor_id": string,"claim_id": string,"expected_version": number,"operation_id": string }; Returns: Json
@@ -396,6 +435,9 @@ isOneToOne: false
                            },
 "set_profile_access":
 { Args: { "enabled": boolean,"expected_version": number,"mutation_id": string,"profile_id": string,"reason": string }; Returns: Json
+                           },
+"start_recovery_attempt":
+{ Args: { "actor_id"?: string,"capability_digest": string,"claim_id": string,"expected_version": number,"operation_id": string }; Returns: Json
                            },
 "submit_feedback":
 { Args: { "campaign_id": string,"content": Json,"draft_id": string,"expected_version": number,"kind": Database["public"]['Enums']["feedback_kind"],"mutation_id": string,"player_id": string,"review_confirmed": boolean }; Returns: Json

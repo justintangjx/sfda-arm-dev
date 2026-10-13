@@ -16,12 +16,24 @@ import {
 } from './screens'
 import styles from './coach.module.css'
 import { validatePublicConfiguration } from './configuration'
-import { readAccess, type Access, type SetupProof } from '../../domain/accounts'
+import {
+  readAccess,
+  type Access,
+  type PasswordLink,
+} from '../../domain/accounts'
 import { createDataClient } from '../data/client'
 import { createLiveCoachAdapter } from '../data/coach'
 import type { DataResult } from './contracts'
-import { AdminSetup, AccountStatus, SetupPassword } from '../accounts/screens'
-import '../accounts/setup'
+import {
+  AdminSetup,
+  AccountStatus,
+  ForgotPassword,
+  PasswordLinkScreen,
+} from '../accounts/screens'
+import { AccountDetailScreen, AccountsScreen } from '../admin/accounts'
+import { CampaignDetailScreen, CampaignsScreen } from '../admin/campaigns'
+import { AdminLayout } from '../admin/shared'
+import '../accounts/link'
 
 const router = createBrowserRouter([
   {
@@ -35,9 +47,27 @@ const router = createBrowserRouter([
     ),
     children: [
       { path: '/login', element: <Login /> },
-      { path: '/auth/setup', element: <SetupPassword /> },
-      { path: '/admin/setup', element: <AdminSetup /> },
+      { path: '/auth/setup', element: <PasswordLinkScreen kind="setup" /> },
+      {
+        path: '/auth/recovery',
+        element: <PasswordLinkScreen kind="recovery" />,
+      },
+      { path: '/forgot-password', element: <ForgotPassword /> },
       { path: '/account', element: <AccountStatus /> },
+      {
+        element: <AdminLayout />,
+        children: [
+          {
+            path: '/admin',
+            element: <Navigate to="/admin/accounts" replace />,
+          },
+          { path: '/admin/accounts', element: <AccountsScreen /> },
+          { path: '/admin/accounts/:id', element: <AccountDetailScreen /> },
+          { path: '/admin/campaigns', element: <CampaignsScreen /> },
+          { path: '/admin/campaigns/:id', element: <CampaignDetailScreen /> },
+          { path: '/admin/setup', element: <AdminSetup /> },
+        ],
+      },
       {
         element: <RequireCoach />,
         children: [
@@ -80,8 +110,8 @@ const previewSession = (): Session => {
 }
 
 export function App({
-  setupProof,
-}: Readonly<{ setupProof: SetupProof | undefined }>) {
+  passwordLink,
+}: Readonly<{ passwordLink: PasswordLink | undefined }>) {
   const loginAttempt = useRef(0)
   const [configuration, setConfiguration] = useState<
     PublicConfiguration | undefined
@@ -91,6 +121,7 @@ export function App({
   const [session, setSession] = useState<Session | undefined>(undefined)
   const [revision, setRevision] = useState(0)
   const [networkUnavailable, reportNetwork] = useState(false)
+  const [formDirty, setFormDirty] = useState(false)
   useEffect(() => {
     const abort = new AbortController()
     void fetch('/api/config', { cache: 'no-store', signal: abort.signal })
@@ -221,7 +252,9 @@ export function App({
             access: session?.access,
             dataClient: session?.dataClient,
             login,
-            setupProof,
+            passwordLink,
+            formDirty,
+            setFormDirty,
           }
         : undefined,
     [
@@ -234,7 +267,8 @@ export function App({
       refresh,
       refreshAccess,
       login,
-      setupProof,
+      passwordLink,
+      formDirty,
     ],
   )
   if (!configuration)

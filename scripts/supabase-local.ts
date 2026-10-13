@@ -153,7 +153,11 @@ if (command === 'reset') {
       'vitest.database.config.ts',
       ...(command === 'auth'
         ? ['supabase/tests/auth-compatibility.test.ts']
-        : []),
+        : process.argv
+            .slice(3)
+            .filter((path) =>
+              /^supabase\/tests\/[a-z-]+\.test\.ts$/.test(path),
+            )),
     ],
     {
       env: {
