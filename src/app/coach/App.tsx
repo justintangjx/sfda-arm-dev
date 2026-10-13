@@ -5,6 +5,7 @@ import { isObject } from '../../domain/feedback'
 import { AsyncState } from './components'
 import { createCoachController } from './controller'
 import { createFixtureAdapter, sampleActor } from './fixtures'
+import type { PlayerNavigationGate } from './navigation'
 import { RuntimeContext, type Runtime } from './runtime'
 import {
   CampaignList,
@@ -113,6 +114,9 @@ export function App({
   passwordLink,
 }: Readonly<{ passwordLink: PasswordLink | undefined }>) {
   const loginAttempt = useRef(0)
+  const playerNavigationGate = useRef<PlayerNavigationGate | undefined>(
+    undefined,
+  )
   const [configuration, setConfiguration] = useState<
     PublicConfiguration | undefined
   >(undefined)
@@ -153,6 +157,7 @@ export function App({
   }, [retry])
   const signOut = useCallback(() => {
     loginAttempt.current++
+    playerNavigationGate.current = undefined
     session?.controller.dispose()
     setSession((current) => (current === session ? undefined : current))
     void session?.adapter.signOut().catch(() => {})
@@ -230,6 +235,7 @@ export function App({
   const refresh = useCallback(() => setRevision((value) => value + 1), [])
   const enterPreview = useCallback(() => {
     if (configuration?.appEnv === 'preview') {
+      playerNavigationGate.current = undefined
       session?.controller.dispose()
       setSession(previewSession())
     }
@@ -255,6 +261,7 @@ export function App({
             passwordLink,
             formDirty,
             setFormDirty,
+            playerNavigationGate,
           }
         : undefined,
     [

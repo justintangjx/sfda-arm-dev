@@ -45,6 +45,10 @@ Spec 0005 adds `database_accounts`, `browser_preparation` and `preparation_acces
 
 Spec 0006 extends `database_accounts` with recovery, shared link, directory, admin recovery and operator function checks, plus actual Worker recovery with captured local mail. `database_campaign` supplies its frozen membership evidence and `unit` its release gate checks. Production SMTP, Cloudflare throttling and operator evidence are not mapped and remain missing.
 
+Spec 0007 extends `database_preparation` with the workspace and workspace regression suites. These execute the real local campaign, roster, context, neighbor and history read functions alongside the existing preparation writes. `browser` supplies simulated workspace navigation and focus races; it remains fixture evidence. `browser_preparation` supplies only its existing real campaign selection, reviewed submission, saved draft restoration, separate session history and memory only login path. `unit` covers controller rules, `harness` covers evidence mapping, and `preparation_accessibility` retains the human accessibility requirement. Preparation and campaign profiles inherit these mappings.
+
+A mapped criterion identifies relevant evidence, not proof that every clause has passed. Full workspace live browser coverage and human accessibility remain outstanding. Workspace mappings do not establish live final or correction capability, voice readiness, actual devices, production smoke or pilot policy approval. The spec 0002 database coverage file retains its separate named test and role contract.
+
 ## Reviews and retained evidence
 
 [voice-text.json](cases/voice-text.json) contains ten synthetic text scenarios. The corpus is pending human approval. Each case fixes its permitted player context, facts, forbidden outcomes and follow up. The quality reducer requires both authorised roles for every case, preserves every fact and requires nine of ten cases to score at least 4 from both reviewers. Any invented observation, player mixing or approval bypass in any attempt fails quality. An earlier unreviewed output is missing evidence. A later passing attempt cannot erase an earlier critical finding.

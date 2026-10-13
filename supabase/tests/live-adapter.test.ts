@@ -26,10 +26,32 @@ it('reads a committed preparation entry through the actual caller adapter', asyn
   const adapter = createLiveCoachAdapter(
     fixture.coach.client as SupabaseClient<ApplicationDatabase>,
   )
-  const result = await adapter.loadHistory(
-    { id: fixture.coach.id, displayName: 'Synthetic coach', accessVersion: 2 },
+  const actor = {
+    id: fixture.coach.id,
+    displayName: 'Synthetic coach',
+    accessVersion: 2,
+  }
+  const context = await adapter.loadCampaignContext(
+    actor,
+    campaignId,
+    new AbortController().signal,
+  )
+  expect(context.ok, context.ok ? undefined : context.code).toBe(true)
+  if (context.ok) expect(context.value.campaign.id).toBe(campaignId)
+  const workspace = await adapter.loadWorkspace(
+    actor,
     campaignId,
     fixture.player.id,
+    undefined,
+    new AbortController().signal,
+  )
+  expect(workspace.ok, workspace.ok ? undefined : workspace.code).toBe(true)
+  if (workspace.ok) expect(workspace.value.player.id).toBe(fixture.player.id)
+  const result = await adapter.loadHistory(
+    actor,
+    campaignId,
+    fixture.player.id,
+    { observedFrom: undefined, observedTo: undefined },
     undefined,
     new AbortController().signal,
   )

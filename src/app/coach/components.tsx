@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
-import type { Entry } from './contracts'
+import type { Entry, HistorySummary } from './contracts'
 import {
   formatDate,
   formatInstant,
@@ -161,73 +161,88 @@ export function ContentReview({
   )
 }
 export function FeedbackHistory({
-  entries,
-}: Readonly<{ entries: readonly Entry[] }>) {
+  summaries,
+  loadEntry,
+}: Readonly<{
+  summaries: readonly HistorySummary[]
+  loadEntry: (feedbackId: string) => Promise<Entry | undefined>
+}>) {
+  const [expanded, setExpanded] = useState<
+    Readonly<Record<string, Entry | 'loading' | 'failed'>>
+  >({})
+  const toggle = async (summary: HistorySummary) => {
+    if (expanded[summary.id] && expanded[summary.id] !== 'loading') {
+      setExpanded((value) => {
+        const next = { ...value }
+        delete next[summary.id]
+        return next
+      })
+      return
+    }
+    setExpanded((value) => ({ ...value, [summary.id]: 'loading' }))
+    const entry = await loadEntry(summary.id)
+    setExpanded((value) => ({
+      ...value,
+      [summary.id]: entry ?? 'failed',
+    }))
+  }
+  const renderText = (content: Entry['content']) => (
+    <dl className={styles.feedbackText}>
+      <dt>Observation date</dt>
+      <dd>{formatDate(content.observedOn)}</dd>
+      {textFields.map((field) => (
+        <div key={field}>
+          <dt>{fieldLabels[field]}</dt>
+          <dd>{content[field] ?? 'Not provided'}</dd>
+        </div>
+      ))}
+    </dl>
+  )
   return (
     <ol className={styles.history}>
-      {entries.map((entry) => {
-        const latest = entry.corrections.at(-1)
-        const renderText = (content: Entry['content']) => (
-          <dl className={styles.feedbackText}>
-            <dt>Observation date</dt>
-            <dd>{formatDate(content.observedOn)}</dd>
-            {textFields.map((field) => (
-              <div key={field}>
-                <dt>{fieldLabels[field]}</dt>
-                <dd>{content[field] ?? 'Not provided'}</dd>
-              </div>
-            ))}
-          </dl>
-        )
+      {summaries.map((summary) => {
+        const detail = expanded[summary.id]
+        const open = Boolean(detail && detail !== 'loading')
         return (
           <li
-            key={entry.id}
-            id={`submission-${entry.id}`}
+            key={summary.id}
+            id={`submission-${summary.id}`}
             className={styles.card}
           >
             <div className={styles.sectionHeader}>
               <h3>
-                {entry.kind === 'preparation'
-                  ? 'Preparation observation'
+                {summary.kind === 'preparation'
+                  ? 'Preparation feedback'
                   : 'Final assessment'}
               </h3>
               <span className={styles.badge}>Submitted</span>
             </div>
             <p className={styles.support}>
-              Submitted {formatInstant(entry.submittedAt)}
+              Observed {formatDate(summary.observedOn)} · Submitted{' '}
+              {formatInstant(summary.submittedAt)}
             </p>
-            {latest ? (
-              <>
-                <div className={styles.comparison}>
-                  <section>
-                    <h4>Original feedback</h4>
-                    {renderText(entry.content)}
-                  </section>
-                  <section>
-                    <h4>Latest correction</h4>
-                    {renderText(latest.content)}
-                    <p>Admin, {formatInstant(latest.correctedAt)}</p>
-                    <p>Reason: {latest.reason}</p>
-                  </section>
-                </div>
-                <details>
-                  <summary>
-                    Correction history ({entry.corrections.length})
-                  </summary>
-                  <ol>
-                    {entry.corrections.map((correction) => (
-                      <li key={correction.id}>
-                        <h4>Revision {correction.revision}, Admin</h4>
-                        <p>{formatInstant(correction.correctedAt)}</p>
-                        <p>Reason: {correction.reason}</p>
-                        {renderText(correction.content)}
-                      </li>
-                    ))}
-                  </ol>
-                </details>
-              </>
-            ) : (
-              renderText(entry.content)
+            <p className={styles.plainText}>
+              {summary.preview || 'No preview'}
+            </p>
+            <button
+              type="button"
+              aria-expanded={open}
+              aria-controls={`history-detail-${summary.id}`}
+              onClick={() => void toggle(summary)}
+            >
+              {open ? 'Hide full feedback' : 'Show full feedback'}
+            </button>
+            {detail === 'loading' && (
+              <p role="status">Loading full feedback…</p>
+            )}
+            {detail === 'failed' && (
+              <p role="alert">Full feedback could not be loaded.</p>
+            )}
+            {detail && detail !== 'loading' && detail !== 'failed' && (
+              <div id={`history-detail-${summary.id}`}>
+                <p className={styles.support}>Original submitted feedback</p>
+                {renderText(detail.content)}
+              </div>
             )}
           </li>
         )

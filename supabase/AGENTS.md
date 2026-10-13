@@ -14,6 +14,8 @@ You can use `pnpm db:start` to start services, `pnpm db:apply` to apply pending 
 
 [migrations/](migrations/) contains preparation, final lifecycle and pagination cursor validation migrations. The `public` schema exposes caller scoped tables and functions. The `private` schema holds validation, permission, receipt and mutation helpers. Functions use explicit grants, verified caller identity and an empty `search_path`. Table policies and column grants both restrict reads. Ordinary callers cannot directly mutate tables.
 
+Campaign and player workspace reads use `SECURITY INVOKER`, keep profile projections within the permitted columns and grant `EXECUTE` only to their required helpers. [coach-workspace-regression.test.ts](tests/coach-workspace-regression.test.ts) checks their context, cursors, literal search and caller privacy.
+
 Writes check current profile access, then lock the competition, campaign and affected children in that order. Profile management locks caller and target profiles in UUID order. Mutation receipts bind actor, request ID, action and normalized input fingerprint. Audit and receipt metadata exclude feedback text and observation dates. Known errors use fixed codes through `private.fail`.
 
 Pairings remain bound to their first campaign for a competition. Submitted originals, obligations, waivers, corrections, receipts and audits are immutable. Ending a feedback stage deletes that stage's drafts in the same transaction. Cursor timestamps and UUIDs are validated before list queries, since row comparisons can skip casts under a generic query plan.

@@ -11,7 +11,20 @@ import {
   useSearchParams,
 } from 'react-router'
 import { isUuid, type FeedbackKind } from '../../domain/feedback'
-import type { Campaign, Player } from './contracts'
+import type {
+  Campaign,
+  CampaignContext,
+  CampaignDiscoveryQuery,
+  Entry,
+  PlayerContext,
+  Player,
+  RosterDiscoveryQuery,
+} from './contracts'
+import {
+  defaultCampaignDiscovery,
+  defaultHistoryDiscovery,
+  defaultRosterDiscovery,
+} from './contracts'
 import {
   AsyncState,
   ContentReview,
@@ -25,6 +38,7 @@ import {
   blankForm,
   dirty,
   editField,
+  formatInstant,
   kindForStage,
   newEditor,
   playerReference,
@@ -36,6 +50,10 @@ import {
   type FieldErrors,
 } from './editor'
 import { useConnectivity, usePages, useRead } from './hooks'
+import {
+  playerIdFromCoachPath,
+  verifyPlayerNavigationTarget,
+} from './navigation'
 import { performAction, useCoach, useCoachState, useRuntime } from './runtime'
 import styles from './coach.module.css'
 
@@ -89,6 +107,11 @@ function AccountControls() {
   const online = useConnectivity()
   const [signOutOpen, setSignOutOpen] = useState(false)
   const attempt = useRef(0)
+  const navigationIntent = useRef<
+    | Readonly<{ targetPlayerId: string; rosterQuery: RosterDiscoveryQuery }>
+    | undefined
+  >(undefined)
+  const [navigationError, setNavigationError] = useState('')
   const location = useLocation()
   const unsaved = Boolean(
     state.pending || (state.editor && dirty(state.editor)),
@@ -97,6 +120,24 @@ function AccountControls() {
     ({ currentLocation, nextLocation }) =>
       currentLocation.pathname !== nextLocation.pathname &&
       (unsaved || runtime.formDirty),
+  )
+  useEffect(() => {
+    if (blocker.state !== 'blocked' || !blocker.location) {
+      navigationIntent.current = undefined
+      return
+    }
+    const targetPlayerId = playerIdFromCoachPath(blocker.location.pathname)
+    const gate = runtime.playerNavigationGate.current
+    navigationIntent.current =
+      targetPlayerId && gate
+        ? { targetPlayerId, rosterQuery: { ...gate.rosterQuery } }
+        : undefined
+  }, [blocker.state, blocker.location, runtime.playerNavigationGate])
+  useEffect(
+    () => () => {
+      attempt.current++
+    },
+    [runtime.controller, location.pathname],
   )
   useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => {
@@ -108,16 +149,16 @@ function AccountControls() {
     return () => window.removeEventListener('beforeunload', warn)
   }, [state.pending, state.editor])
   useEffect(() => {
-    const refresh = () => {
+    const refreshOnAccess = () => {
       void refreshAccess().then((valid) => {
         if (valid) refresh()
       })
     }
-    window.addEventListener('focus', refresh)
-    window.addEventListener('online', refresh)
+    window.addEventListener('focus', refreshOnAccess)
+    window.addEventListener('online', refreshOnAccess)
     return () => {
-      window.removeEventListener('focus', refresh)
-      window.removeEventListener('online', refresh)
+      window.removeEventListener('focus', refreshOnAccess)
+      window.removeEventListener('online', refreshOnAccess)
     }
   }, [refreshAccess, refresh])
   useEffect(() => {
@@ -130,12 +171,52 @@ function AccountControls() {
   }, [location.pathname])
   const close = () => {
     attempt.current++
+    setNavigationError('')
     setSignOutOpen(false)
     if (blocker.state === 'blocked') blocker.reset()
   }
-  const leave = () => {
-    attempt.current++
-    if (state.pending) runtime.controller.detach()
+  const confirmPlayerSwitch = async (token: number) => {
+    const intent = navigationIntent.current
+    const gate = runtime.playerNavigationGate.current
+    if (!signOutOpen && intent && !gate) {
+      setNavigationError(
+        'The roster changed. Stay on this player and try again.',
+      )
+      return false
+    }
+    if (!signOutOpen && intent && gate && runtime.adapter && runtime.actor) {
+      const verified = await verifyPlayerNavigationTarget(
+        runtime.adapter,
+        runtime.actor,
+        gate,
+        intent.targetPlayerId,
+        intent.rosterQuery,
+        new AbortController().signal,
+        () =>
+          token === attempt.current &&
+          navigationIntent.current === intent &&
+          runtime.playerNavigationGate.current === gate,
+      )
+      if (token !== attempt.current) return false
+      if (!verified.ok) {
+        setNavigationError(
+          verified.code === 'INVALID_INPUT'
+            ? 'Roster filters changed. Stay on this player or apply filters again.'
+            : 'That player is no longer available with the current roster filters.',
+        )
+        return false
+      }
+    }
+    setNavigationError('')
+    return true
+  }
+  const leave = async () => {
+    const token = ++attempt.current
+    if (!signOutOpen && blocker.state === 'blocked') {
+      const allowed = await confirmPlayerSwitch(token)
+      if (!allowed || token !== attempt.current) return
+    }
+    if (runtime.controller.getSnapshot().pending) runtime.controller.detach()
     else runtime.controller.clearEditor()
     if (signOutOpen) {
       runtime.signOut()
@@ -146,7 +227,7 @@ function AccountControls() {
     const token = ++attempt.current
     const saved = await performAction(runtime, 'save')
     if (token !== attempt.current || !saved) return
-    leave()
+    await leave()
   }
   return (
     <>
@@ -206,12 +287,18 @@ function AccountControls() {
           {state.editor?.resumeRequired && (
             <p>This original phase or assignment no longer allows saving.</p>
           )}
+          {navigationError && <p role="alert">{navigationError}</p>}
           <div className={styles.actions}>
             <button type="button" data-safe-focus onClick={close}>
               Stay
             </button>
             {state.pending ? (
-              <button type="button" onClick={leave}>
+              <button
+                type="button"
+                onClick={() => {
+                  void leave()
+                }}
+              >
                 {signOutOpen ? 'Sign out and lose recovery state' : 'Leave'}
               </button>
             ) : (
@@ -229,7 +316,13 @@ function AccountControls() {
                     ? 'Save draft and sign out'
                     : 'Save draft and switch'}
                 </button>
-                <button type="button" className={styles.danger} onClick={leave}>
+                <button
+                  type="button"
+                  className={styles.danger}
+                  onClick={() => {
+                    void leave()
+                  }}
+                >
                   {signOutOpen ? 'Discard local edits and sign out' : 'Discard'}
                 </button>
               </>
@@ -434,12 +527,22 @@ export function RequireCoach() {
 }
 export function CampaignList() {
   const { actor, adapter, revision } = useCoach()
+  const [draft, setDraft] = useState(defaultCampaignDiscovery)
+  const [applied, setApplied] = useState(defaultCampaignDiscovery)
   const load = useCallback(
     (cursor: string | undefined, signal: AbortSignal) =>
-      adapter.loadCampaigns(actor, cursor, signal),
-    [actor, adapter],
+      adapter.loadCampaigns(actor, applied, cursor, signal),
+    [actor, adapter, applied],
   )
   const page = usePages(load, revision)
+  const emptyTitle =
+    applied.mode === 'current'
+      ? applied.text || applied.stage
+        ? 'No campaigns match these filters'
+        : 'No current campaigns'
+      : applied.text || applied.stage
+        ? 'No campaigns match these filters'
+        : 'No historical campaigns'
   return (
     <>
       <div className={styles.intro}>
@@ -450,6 +553,86 @@ export function CampaignList() {
           feedback.
         </p>
       </div>
+      <div className={styles.filters} role="search">
+        <div className={styles.filterRow}>
+          <span className={styles.support}>Campaign list</span>
+          <button
+            type="button"
+            aria-pressed={applied.mode === 'current'}
+            onClick={() => {
+              setDraft((value) => ({ ...value, mode: 'current' }))
+              setApplied((value) => ({ ...value, mode: 'current' }))
+            }}
+          >
+            Current
+          </button>
+          <button
+            type="button"
+            aria-pressed={applied.mode === 'history'}
+            onClick={() => {
+              setDraft((value) => ({ ...value, mode: 'history' }))
+              setApplied((value) => ({ ...value, mode: 'history' }))
+            }}
+          >
+            History
+          </button>
+        </div>
+        <label>
+          Search campaigns
+          <input
+            value={draft.text ?? ''}
+            onChange={(event) =>
+              setDraft((value) => ({ ...value, text: event.target.value }))
+            }
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault()
+                setApplied({ ...draft, text: draft.text?.trim() || undefined })
+              }
+            }}
+          />
+        </label>
+        <label>
+          Stage
+          <select
+            value={draft.stage ?? ''}
+            onChange={(event) =>
+              setDraft((value) => ({
+                ...value,
+                stage: event.target.value
+                  ? (event.target.value as CampaignDiscoveryQuery['stage'])
+                  : undefined,
+              }))
+            }
+          >
+            <option value="">All stages</option>
+            {Object.entries(stageLabels).map(([stage, label]) => (
+              <option key={stage} value={stage}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className={styles.filterRow}>
+          <button
+            type="button"
+            onClick={() =>
+              setApplied({ ...draft, text: draft.text?.trim() || undefined })
+            }
+          >
+            Search
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setDraft(defaultCampaignDiscovery)
+              setApplied(defaultCampaignDiscovery)
+            }}
+          >
+            Clear filters
+          </button>
+        </div>
+      </div>
       {!page.loaded && page.loading && (
         <StatusBanner>Loading your campaigns…</StatusBanner>
       )}
@@ -459,8 +642,18 @@ export function CampaignList() {
         </AsyncState>
       )}
       {page.loaded && !page.rows.length && (
-        <AsyncState title="No campaigns assigned">
-          Contact your admin.
+        <AsyncState title={emptyTitle}>
+          {(applied.text || applied.stage) && (
+            <button
+              type="button"
+              onClick={() => {
+                setDraft(defaultCampaignDiscovery)
+                setApplied(defaultCampaignDiscovery)
+              }}
+            >
+              Clear filters
+            </button>
+          )}
         </AsyncState>
       )}
       <ul className={styles.cards}>
@@ -480,7 +673,10 @@ export function CampaignList() {
               <dd>{campaign.competition}</dd>
             </dl>
             <p className={styles.support}>
-              {campaign.isActive ? 'Current assignment' : 'Historical access'}
+              {campaign.accessLabel ??
+                (campaign.isActive
+                  ? 'Current assignment'
+                  : 'Historical access')}
             </p>
           </li>
         ))}
@@ -497,7 +693,11 @@ export function CampaignList() {
 }
 type CampaignOutlet = Readonly<{
   campaign: Campaign
+  campaignContext: CampaignContext
   players: readonly Player[]
+  rosterQuery: RosterDiscoveryQuery
+  rosterFingerprint: string | undefined
+  selectedFilterMatch: boolean | undefined
 }>
 export function CampaignRoute() {
   const { campaignId } = useParams()
@@ -516,12 +716,63 @@ function UnavailableWorkspace() {
 }
 function CampaignWorkspace({ campaignId }: Readonly<{ campaignId: string }>) {
   const { actor, adapter, revision } = useCoach()
+  const { playerNavigationGate } = useRuntime()
+  const navigate = useNavigate()
   const { playerId } = useParams()
   const location = useLocation()
+  const [rosterNavError, setRosterNavError] = useState('')
   const previousPlayer = useRef<string | undefined>(undefined)
+  const [rosterDraft, setRosterDraft] = useState(defaultRosterDiscovery)
+  const [rosterQuery, setRosterQuery] = useState(defaultRosterDiscovery)
+  const navigationAttempt = useRef(0)
+  useEffect(
+    () => () => {
+      navigationAttempt.current++
+    },
+    [actor, adapter, location.pathname],
+  )
+  useEffect(() => {
+    playerNavigationGate.current = { campaignId, rosterQuery }
+    return () => {
+      if (playerNavigationGate.current?.campaignId === campaignId)
+        playerNavigationGate.current = undefined
+    }
+  }, [campaignId, rosterQuery, playerNavigationGate])
+  const openPlayer = async (targetPlayerId: string) => {
+    const token = ++navigationAttempt.current
+    setRosterNavError('')
+    const intentQuery = { ...rosterQuery }
+    const gate = playerNavigationGate.current
+    if (!gate) {
+      setRosterNavError('The roster changed. You can refresh and try again.')
+      return
+    }
+    const verified = await verifyPlayerNavigationTarget(
+      adapter,
+      actor,
+      gate,
+      targetPlayerId,
+      intentQuery,
+      new AbortController().signal,
+      () =>
+        token === navigationAttempt.current &&
+        playerNavigationGate.current === gate,
+    )
+    if (token !== navigationAttempt.current) return
+    if (!verified.ok) {
+      setRosterNavError(
+        verified.code === 'INVALID_INPUT'
+          ? 'Roster filters changed before navigation could finish.'
+          : 'That player is not available with the current roster filters.',
+      )
+      return
+    }
+    navigate(playerPath(campaignId, targetPlayerId))
+  }
   const campaignRead = useRead(
     useCallback(
-      (signal: AbortSignal) => adapter.loadCampaign(actor, campaignId, signal),
+      (signal: AbortSignal) =>
+        adapter.loadCampaignContext(actor, campaignId, signal),
       [actor, adapter, campaignId],
     ),
     revision,
@@ -529,16 +780,24 @@ function CampaignWorkspace({ campaignId }: Readonly<{ campaignId: string }>) {
   const roster = usePages(
     useCallback(
       (cursor: string | undefined, signal: AbortSignal) =>
-        adapter.loadRoster(actor, campaignId, cursor, signal),
-      [actor, adapter, campaignId],
+        adapter.loadRoster(actor, campaignId, rosterQuery, cursor, signal),
+      [actor, adapter, campaignId, rosterQuery],
     ),
     revision,
   )
-  const completion = useRead(
+  const selectedContext = useRead<PlayerContext | undefined>(
     useCallback(
       (signal: AbortSignal) =>
-        adapter.loadCompletion(actor, campaignId, signal),
-      [actor, adapter, campaignId],
+        playerId
+          ? adapter.loadPlayerContext(
+              actor,
+              campaignId,
+              playerId,
+              rosterQuery,
+              signal,
+            )
+          : Promise.resolve({ ok: true as const, value: undefined }),
+      [actor, adapter, campaignId, playerId, rosterQuery],
     ),
     revision,
   )
@@ -560,7 +819,13 @@ function CampaignWorkspace({ campaignId }: Readonly<{ campaignId: string }>) {
         {campaignRead.error.code}, request {campaignRead.error.requestId}
       </AsyncState>
     )
-  const campaign = campaignRead.value!
+  const campaignContext = campaignRead.value!
+  const campaign = campaignContext.campaign
+  const requirements = campaignContext.requirements
+  const selectedOnPage = playerId
+    ? roster.rows.some((row) => row.id === playerId)
+    : false
+  const filterMatch = selectedContext.value?.filterMatch
   return (
     <>
       <section className={styles.context}>
@@ -575,21 +840,13 @@ function CampaignWorkspace({ campaignId }: Readonly<{ campaignId: string }>) {
             ? 'Current assignment'
             : 'Historical access, feedback is read only'}
         </p>
-        {completion.value?.scope === 'self' && (
-          <p className={styles.support}>
-            {completion.value.frozen
-              ? `Your final assessments: ${completion.value.submitted} submitted, ${completion.value.waived} waived, ${completion.value.outstanding} outstanding`
-              : 'Final assessment list not set'}
-          </p>
-        )}
-        {completion.error && (
-          <p>
-            Completion unavailable.{' '}
-            <button type="button" onClick={completion.retry}>
-              Retry completion
-            </button>
-          </p>
-        )}
+        <p className={styles.support}>
+          {requirements.frozen
+            ? requirements.frozenRequiredCount === null
+              ? 'Final assessment requirements are not set'
+              : `Your frozen final assessments required: ${requirements.frozenRequiredCount}`
+            : 'Final assessment requirements are not set'}
+        </p>
       </section>
       <div className={styles.layout}>
         <nav
@@ -602,6 +859,98 @@ function CampaignWorkspace({ campaignId }: Readonly<{ campaignId: string }>) {
               Choose a player by name and reference.
             </p>
           </div>
+          <div className={styles.filters} role="search">
+            <label>
+              Search players
+              <input
+                value={rosterDraft.text ?? ''}
+                onChange={(event) =>
+                  setRosterDraft((value) => ({
+                    ...value,
+                    text: event.target.value,
+                  }))
+                }
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault()
+                    setRosterQuery({
+                      ...rosterDraft,
+                      text: rosterDraft.text?.trim() || undefined,
+                    })
+                  }
+                }}
+              />
+            </label>
+            <label>
+              Membership
+              <select
+                value={rosterDraft.membership}
+                onChange={(event) =>
+                  setRosterDraft((value) => ({
+                    ...value,
+                    membership: event.target
+                      .value as RosterDiscoveryQuery['membership'],
+                  }))
+                }
+              >
+                <option value="active">Active</option>
+                <option value="withdrawn">Withdrawn</option>
+                <option value="all">All</option>
+              </select>
+            </label>
+            <label>
+              Saved drafts
+              <select
+                value={rosterDraft.drafts}
+                onChange={(event) =>
+                  setRosterDraft((value) => ({
+                    ...value,
+                    drafts: event.target
+                      .value as RosterDiscoveryQuery['drafts'],
+                  }))
+                }
+              >
+                <option value="all">All players</option>
+                <option value="saved">Saved preparation draft</option>
+              </select>
+            </label>
+            <div className={styles.filterRow}>
+              <button
+                type="button"
+                onClick={() =>
+                  setRosterQuery({
+                    ...rosterDraft,
+                    text: rosterDraft.text?.trim() || undefined,
+                  })
+                }
+              >
+                Search
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setRosterDraft(defaultRosterDiscovery)
+                  setRosterQuery(defaultRosterDiscovery)
+                }}
+              >
+                Clear filters
+              </button>
+            </div>
+          </div>
+          {rosterNavError && (
+            <StatusBanner urgent>{rosterNavError}</StatusBanner>
+          )}
+          {playerId && filterMatch === false && (
+            <StatusBanner urgent>
+              Selected player is outside the current filters. Your workspace
+              stays open.
+            </StatusBanner>
+          )}
+          {playerId && filterMatch && !selectedOnPage && (
+            <StatusBanner>
+              Selected player is not in the loaded results.
+            </StatusBanner>
+          )}
           {!roster.loaded && roster.loading && (
             <StatusBanner>Loading players…</StatusBanner>
           )}
@@ -611,15 +960,48 @@ function CampaignWorkspace({ campaignId }: Readonly<{ campaignId: string }>) {
             </AsyncState>
           )}
           {roster.loaded && !roster.rows.length && (
-            <AsyncState title="No players in this campaign" />
+            <AsyncState title="No players match these filters">
+              <button
+                type="button"
+                onClick={() => {
+                  setRosterDraft(defaultRosterDiscovery)
+                  setRosterQuery(defaultRosterDiscovery)
+                }}
+              >
+                Clear filters
+              </button>
+            </AsyncState>
           )}
           <ul className={styles.rosterList}>
+            {playerId && !selectedOnPage && selectedContext.value && (
+              <li>
+                <Link
+                  to={playerPath(campaignId, playerId)}
+                  aria-current="page"
+                  className={styles.selectedOutsideList}
+                >
+                  {selectedContext.value.player.displayName} (selected)
+                </Link>
+              </li>
+            )}
             {roster.rows.map((player) => (
               <li key={player.id}>
                 <Link
                   id={`roster-${player.id}`}
                   to={playerPath(campaignId, player.id)}
                   aria-current={player.id === playerId ? 'page' : undefined}
+                  onClick={(event) => {
+                    if (
+                      player.id === playerId ||
+                      event.metaKey ||
+                      event.ctrlKey ||
+                      event.shiftKey ||
+                      event.altKey
+                    )
+                      return
+                    event.preventDefault()
+                    void openPlayer(player.id)
+                  }}
                 >
                   <span>{player.displayName}</span>
                   <span className={styles.reference}>
@@ -632,13 +1014,18 @@ function CampaignWorkspace({ campaignId }: Readonly<{ campaignId: string }>) {
                   {!player.isActive && (
                     <span className={styles.support}>Withdrawn</span>
                   )}
-                  {campaign.frozen && (
-                    <span className={styles.support}>
-                      {player.obligation === 'none'
-                        ? 'No final assessment required'
-                        : `Your final: ${player.obligation}`}
-                    </span>
+                  {player.hasSavedPreparationDraft && (
+                    <span className={styles.support}>Saved draft</span>
                   )}
+                  <span className={styles.support}>
+                    Preparation submissions:{' '}
+                    {player.preparationSubmissionCount ?? '0'}
+                  </span>
+                  <span className={styles.support}>
+                    {player.latestPreparationSubmittedAt
+                      ? `Latest ${formatInstant(player.latestPreparationSubmittedAt)}`
+                      : 'No submitted preparation feedback'}
+                  </span>
                 </Link>
               </li>
             ))}
@@ -659,7 +1046,16 @@ function CampaignWorkspace({ campaignId }: Readonly<{ campaignId: string }>) {
           {playerId ? (
             <Outlet
               context={
-                { campaign, players: roster.rows } satisfies CampaignOutlet
+                {
+                  campaign,
+                  campaignContext,
+                  players: roster.rows,
+                  rosterQuery,
+                  rosterFingerprint: roster.rows.length
+                    ? roster.queryFingerprint
+                    : undefined,
+                  selectedFilterMatch: filterMatch,
+                } satisfies CampaignOutlet
               }
             />
           ) : (
@@ -688,9 +1084,16 @@ function PlayerWorkspace({
   playerId,
 }: Readonly<{ campaignId: string; playerId: string }>) {
   const runtime = useCoach()
+  const { playerNavigationGate } = useRuntime()
   const state = useCoachState()
   const online = useConnectivity()
-  const { campaign, players } = useOutletContext<CampaignOutlet>()
+  const { campaign, players, rosterQuery } = useOutletContext<CampaignOutlet>()
+  const navigate = useNavigate()
+  const [historyDraft, setHistoryDraft] = useState(defaultHistoryDiscovery)
+  const [historyQuery, setHistoryQuery] = useState(defaultHistoryDiscovery)
+  useEffect(() => {
+    setFocusedSubmission(undefined)
+  }, [playerId, campaignId, historyQuery])
   const [query, setQuery] = useSearchParams()
   const tab = query.get('tab') === 'history' ? 'history' : 'write'
   const kind = useRef<FeedbackKind | undefined>(
@@ -716,7 +1119,44 @@ function PlayerWorkspace({
     'final' | 'discard' | 'phase' | undefined
   >(undefined)
   const [localError, setLocalError] = useState('')
+  const navigationAttempt = useRef(0)
   const [historyRevision, setHistoryRevision] = useState(0)
+  const [focusedSubmission, setFocusedSubmission] = useState<
+    Entry | 'loading' | 'failed' | undefined
+  >(undefined)
+  const switchPlayer = async (targetPlayerId: string) => {
+    const token = ++navigationAttempt.current
+    setLocalError('')
+    const intentQuery = { ...rosterQuery }
+    const gate = playerNavigationGate.current
+    const path = `${playerPath(campaignId, targetPlayerId)}${tab === 'history' ? '?tab=history' : ''}`
+    if (!gate) {
+      setLocalError('The roster changed. You can refresh and try again.')
+      return
+    }
+    const verified = await verifyPlayerNavigationTarget(
+      runtime.adapter,
+      runtime.actor,
+      gate,
+      targetPlayerId,
+      intentQuery,
+      new AbortController().signal,
+      () =>
+        activeWorkspace.current &&
+        token === navigationAttempt.current &&
+        playerNavigationGate.current === gate,
+    )
+    if (!activeWorkspace.current || token !== navigationAttempt.current) return
+    if (!verified.ok) {
+      setLocalError(
+        verified.code === 'INVALID_INPUT'
+          ? 'Roster filters changed. Previous and Next were cancelled.'
+          : 'That player is no longer available with the current roster filters.',
+      )
+      return
+    }
+    navigate(path)
+  }
   const read = useRead(
     useCallback(
       (signal: AbortSignal) =>
@@ -738,12 +1178,27 @@ function PlayerWorkspace({
           runtime.actor,
           campaignId,
           playerId,
+          historyQuery,
           cursor,
           signal,
         ),
-      [runtime.actor, runtime.adapter, campaignId, playerId],
+      [runtime.actor, runtime.adapter, campaignId, playerId, historyQuery],
     ),
     historyRevision + runtime.revision,
+  )
+  const neighbors = useRead(
+    useCallback(
+      (signal: AbortSignal) =>
+        runtime.adapter.loadRosterNeighbors(
+          runtime.actor,
+          campaignId,
+          playerId,
+          rosterQuery,
+          signal,
+        ),
+      [runtime.actor, runtime.adapter, campaignId, playerId, rosterQuery],
+    ),
+    runtime.revision,
   )
   useEffect(() => {
     if (!read.value) return
@@ -894,6 +1349,34 @@ function PlayerWorkspace({
         {!workspace.player.isActive && (
           <p className={styles.support}>Withdrawn from roster</p>
         )}
+        <div className={styles.filterRow}>
+          <button
+            type="button"
+            disabled={!neighbors.value?.previous}
+            onClick={() => {
+              const target = neighbors.value?.previous
+              if (target) void switchPlayer(target.playerId)
+            }}
+          >
+            Previous player
+          </button>
+          <button
+            type="button"
+            disabled={!neighbors.value?.next}
+            onClick={() => {
+              const target = neighbors.value?.next
+              if (target) void switchPlayer(target.playerId)
+            }}
+          >
+            Next player
+          </button>
+        </div>
+        {neighbors.value && !neighbors.value.selectedMatch && (
+          <p className={styles.support}>
+            This player is outside the current roster filters. Previous and Next
+            are unavailable.
+          </p>
+        )}
       </div>
       <StatusBanner>{accessText}</StatusBanner>
       {state.message &&
@@ -906,7 +1389,26 @@ function PlayerWorkspace({
               <div>
                 <button
                   type="button"
-                  onClick={() => setQuery({ tab: 'history' })}
+                  onClick={() => {
+                    setQuery({ tab: 'history' })
+                    const submissionId = state.lastSubmission
+                    if (!submissionId) return
+                    setFocusedSubmission('loading')
+                    void runtime.adapter
+                      .loadFeedbackEntry(
+                        runtime.actor,
+                        campaignId,
+                        playerId,
+                        submissionId,
+                        new AbortController().signal,
+                      )
+                      .then((result) => {
+                        setFocusedSubmission(
+                          result.ok ? result.value : 'failed',
+                        )
+                      })
+                      .catch(() => setFocusedSubmission('failed'))
+                  }}
                 >
                   View submitted feedback
                 </button>
@@ -923,7 +1425,18 @@ function PlayerWorkspace({
         hidden={tab !== 'write'}
       >
         {submitted ? (
-          <FeedbackHistory entries={[submitted]} />
+          <FeedbackHistory
+            summaries={[
+              {
+                id: submitted.id,
+                kind: submitted.kind,
+                observedOn: submitted.content.observedOn ?? '',
+                submittedAt: submitted.submittedAt,
+                preview: (submitted.content.observations ?? '').slice(0, 160),
+              },
+            ]}
+            loadEntry={async () => submitted}
+          />
         ) : (
           <>
             <div className={styles.formHeading}>
@@ -1220,9 +1733,65 @@ function PlayerWorkspace({
       >
         <h3>Your submitted feedback</h3>
         <p className={styles.support}>
-          Only your submissions are shown. Corrections retain the original
-          feedback.
+          Original submitted feedback. Correction support is unavailable in this
+          release.
         </p>
+        <div className={styles.filters}>
+          <label>
+            Observation from
+            <input
+              type="date"
+              value={historyDraft.observedFrom ?? ''}
+              onChange={(event) =>
+                setHistoryDraft((value) => ({
+                  ...value,
+                  observedFrom: event.target.value || undefined,
+                }))
+              }
+            />
+          </label>
+          <label>
+            Observation to
+            <input
+              type="date"
+              value={historyDraft.observedTo ?? ''}
+              onChange={(event) =>
+                setHistoryDraft((value) => ({
+                  ...value,
+                  observedTo: event.target.value || undefined,
+                }))
+              }
+            />
+          </label>
+          <div className={styles.filterRow}>
+            <button
+              type="button"
+              onClick={() => {
+                if (
+                  historyDraft.observedFrom &&
+                  historyDraft.observedTo &&
+                  historyDraft.observedFrom > historyDraft.observedTo
+                ) {
+                  setLocalError('Observation from must not be after to.')
+                  return
+                }
+                setLocalError('')
+                setHistoryQuery({ ...historyDraft })
+              }}
+            >
+              Apply date range
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setHistoryDraft(defaultHistoryDiscovery)
+                setHistoryQuery(defaultHistoryDiscovery)
+              }}
+            >
+              Clear dates
+            </button>
+          </div>
+        </div>
         {!history.loaded && history.loading && (
           <StatusBanner>Loading submitted feedback…</StatusBanner>
         )}
@@ -1234,7 +1803,52 @@ function PlayerWorkspace({
         {history.loaded && !history.rows.length && (
           <AsyncState title="No submitted feedback yet" />
         )}
-        <FeedbackHistory entries={history.rows} />
+        {focusedSubmission &&
+          focusedSubmission !== 'loading' &&
+          focusedSubmission !== 'failed' &&
+          !history.rows.some((row) => row.id === focusedSubmission.id) && (
+            <section className={styles.card}>
+              <h4>Submitted feedback</h4>
+              <p className={styles.support}>
+                Outside this observation date range.
+              </p>
+              <FeedbackHistory
+                summaries={[
+                  {
+                    id: focusedSubmission.id,
+                    kind: focusedSubmission.kind,
+                    observedOn: focusedSubmission.content.observedOn ?? '',
+                    submittedAt: focusedSubmission.submittedAt,
+                    preview: (
+                      focusedSubmission.content.observations ?? ''
+                    ).slice(0, 160),
+                  },
+                ]}
+                loadEntry={async () => focusedSubmission}
+              />
+            </section>
+          )}
+        {focusedSubmission === 'loading' && (
+          <StatusBanner>Loading submitted feedback…</StatusBanner>
+        )}
+        {focusedSubmission === 'failed' && (
+          <StatusBanner urgent>
+            Submitted feedback could not be loaded for this date range.
+          </StatusBanner>
+        )}
+        <FeedbackHistory
+          summaries={history.rows}
+          loadEntry={async (feedbackId) => {
+            const result = await runtime.adapter.loadFeedbackEntry(
+              runtime.actor,
+              campaignId,
+              playerId,
+              feedbackId,
+              new AbortController().signal,
+            )
+            return result.ok ? result.value : undefined
+          }}
+        />
         {history.cursor && (
           <div className={styles.paging}>
             <button

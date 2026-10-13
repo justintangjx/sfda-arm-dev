@@ -85,12 +85,18 @@ test('tabs use manual activation and preserve unsaved form text', async ({
   await expect(write).toHaveAttribute('aria-selected', 'true')
   await page.keyboard.press('Enter')
   await expect(history).toHaveAttribute('aria-selected', 'true')
+  const disclosure = page.getByRole('button', { name: 'Show full feedback' })
+  await expect(disclosure).toHaveAttribute('aria-expanded', 'false')
+  await disclosure.click()
   await expect(
-    page.getByRole('heading', { name: 'Original feedback' }),
+    page.getByText('Original submitted feedback', { exact: true }),
   ).toBeVisible()
   await expect(
     page.getByRole('heading', { name: 'Latest correction' }),
-  ).toBeVisible()
+  ).toHaveCount(0)
+  await expect(
+    page.getByRole('button', { name: 'Hide full feedback' }),
+  ).toHaveAttribute('aria-expanded', 'true')
   await write.click()
   await expect(
     page.getByLabel('Observations (required to submit)', { exact: true }),
@@ -119,7 +125,11 @@ test('incomplete draft saves explicitly and automatically resumes on return', as
   await expect(
     page.getByLabel('Strengths (optional)', { exact: true }),
   ).toHaveValue('Sample incomplete draft')
-  await expect(page.getByText('Saved draft', { exact: true })).toBeVisible()
+  await expect(
+    page
+      .getByRole('tabpanel', { name: 'Write feedback' })
+      .getByText('Saved draft', { exact: true }),
+  ).toBeVisible()
 })
 test('navigation guard stays safely, saves before switching and local discard preserves saved draft', async ({
   page,

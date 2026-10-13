@@ -11,6 +11,34 @@ export type Actor = Readonly<{
   displayName: string
   accessVersion: number
 }>
+export type CampaignDiscoveryQuery = Readonly<{
+  mode: 'current' | 'history'
+  text: string | undefined
+  stage: CampaignStage | undefined
+}>
+export const defaultCampaignDiscovery: CampaignDiscoveryQuery = {
+  mode: 'current',
+  text: undefined,
+  stage: undefined,
+}
+export type RosterDiscoveryQuery = Readonly<{
+  text: string | undefined
+  membership: 'all' | 'active' | 'withdrawn'
+  drafts: 'all' | 'saved'
+}>
+export const defaultRosterDiscovery: RosterDiscoveryQuery = {
+  text: undefined,
+  membership: 'active',
+  drafts: 'all',
+}
+export type HistoryDiscoveryQuery = Readonly<{
+  observedFrom: string | undefined
+  observedTo: string | undefined
+}>
+export const defaultHistoryDiscovery: HistoryDiscoveryQuery = {
+  observedFrom: undefined,
+  observedTo: undefined,
+}
 export type Campaign = Readonly<{
   id: string
   name: string
@@ -21,6 +49,18 @@ export type Campaign = Readonly<{
   membershipVersion: number
   isActive: boolean
   frozen: boolean
+  accessLabel?: string
+}>
+export type FreezeRequirements = Readonly<{
+  scope: 'self'
+  frozen: boolean
+  frozenRequiredCount: number | null
+}>
+export type CampaignContext = Readonly<{
+  campaign: Campaign
+  requirements: FreezeRequirements
+  writeKinds: readonly ['preparation']
+  correctionSupport: 'unavailable'
 }>
 export type Player = Readonly<{
   id: string
@@ -29,6 +69,34 @@ export type Player = Readonly<{
   membershipVersion: number
   obligation: 'outstanding' | 'submitted' | 'waived' | 'none'
   waiverReason: string | undefined
+  hasSavedPreparationDraft?: boolean
+  preparationSubmissionCount?: string
+  latestPreparationSubmittedAt?: string | undefined
+}>
+export type HistorySummary = Readonly<{
+  id: string
+  kind: FeedbackKind
+  observedOn: string
+  submittedAt: string
+  preview: string
+}>
+export type RosterNeighbor = Readonly<{
+  playerId: string
+  displayName: string
+  membershipVersion: number
+}>
+export type RosterNeighbors = Readonly<{
+  queryFingerprint: string
+  selectedMatch: boolean
+  previous: RosterNeighbor | undefined
+  next: RosterNeighbor | undefined
+}>
+export type PlayerContext = Readonly<{
+  context: CampaignContext
+  player: Player
+  filterMatch: boolean
+  preparationWritable: boolean
+  draft: Draft | undefined
 }>
 export type Correction = Readonly<{
   id: string
@@ -58,6 +126,8 @@ export type Context = Readonly<{
 export type Page<T> = Readonly<{
   rows: readonly T[]
   nextCursor: string | undefined
+  queryFingerprint?: string
+  readAt?: string
 }>
 export type DataResult<T> =
   | Readonly<{ ok: true; value: T }>
@@ -102,20 +172,36 @@ export type CoachAdapter = Readonly<{
   signOut: () => Promise<void>
   loadCampaigns: (
     actor: Actor,
+    discovery: CampaignDiscoveryQuery,
     cursor: string | undefined,
     signal: AbortSignal,
   ) => Promise<DataResult<Page<Campaign>>>
   loadRoster: (
     actor: Actor,
     campaignId: string,
+    discovery: RosterDiscoveryQuery,
     cursor: string | undefined,
     signal: AbortSignal,
   ) => Promise<DataResult<Page<Player>>>
-  loadCampaign: (
+  loadCampaignContext: (
     actor: Actor,
     campaignId: string,
     signal: AbortSignal,
-  ) => Promise<DataResult<Campaign>>
+  ) => Promise<DataResult<CampaignContext>>
+  loadPlayerContext: (
+    actor: Actor,
+    campaignId: string,
+    playerId: string,
+    discovery: RosterDiscoveryQuery,
+    signal: AbortSignal,
+  ) => Promise<DataResult<PlayerContext>>
+  loadRosterNeighbors: (
+    actor: Actor,
+    campaignId: string,
+    playerId: string,
+    discovery: RosterDiscoveryQuery,
+    signal: AbortSignal,
+  ) => Promise<DataResult<RosterNeighbors>>
   loadWorkspace: (
     actor: Actor,
     campaignId: string,
@@ -127,14 +213,17 @@ export type CoachAdapter = Readonly<{
     actor: Actor,
     campaignId: string,
     playerId: string,
+    discovery: HistoryDiscoveryQuery,
     cursor: string | undefined,
     signal: AbortSignal,
-  ) => Promise<DataResult<Page<Entry>>>
-  loadCompletion: (
+  ) => Promise<DataResult<Page<HistorySummary>>>
+  loadFeedbackEntry: (
     actor: Actor,
     campaignId: string,
+    playerId: string,
+    feedbackId: string,
     signal: AbortSignal,
-  ) => Promise<DataResult<Completion>>
+  ) => Promise<DataResult<Entry>>
   mutate: (actor: Actor, command: Command) => Promise<DataResult<Commit>>
   checkPendingResult: (actor: Actor, command: Command) => Promise<Recovery>
 }>
