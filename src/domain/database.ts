@@ -22,6 +22,10 @@ type NullableInput =
   | 'drafts'
   | 'observed_from'
   | 'observed_to'
+  | 'voice_session_ids'
+  | 'after_created_at'
+  | 'after_id'
+  | 'config'
 type Functions = Database['public']['Functions']
 type NullableArguments<Arguments> = {
   [Key in keyof Arguments]: Key extends NullableInput

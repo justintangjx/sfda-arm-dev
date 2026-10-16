@@ -32,7 +32,10 @@
     "verification/owners.json",
     "verification/release.json",
     "verification/database-coverage.json",
-    ".github/workflows/checks.yml"
+    ".github/workflows/checks.yml",
+    "verification/voice-config.json",
+    "pnpm-workspace.yaml",
+    "patches"
   ],
   "actualDevices": [
     {

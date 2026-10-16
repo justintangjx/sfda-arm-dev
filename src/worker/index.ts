@@ -8,8 +8,11 @@ import {
   type ConfigurationBindings,
 } from './configuration'
 import type { AccountBindings } from './release'
+import { handleVoiceRequest, reconcileVoiceSessions, voiceRoute } from './voice'
+import type { VoiceBindings } from './voice-configuration'
 
-interface WorkerBindings extends ConfigurationBindings, AccountBindings {
+interface WorkerBindings
+  extends ConfigurationBindings, AccountBindings, VoiceBindings {
   ASSETS: Fetcher
 }
 
@@ -44,12 +47,13 @@ export default {
     const started = performance.now()
     const requestId = crypto.randomUUID()
     const account = accountRoute(request.method, path)
+    const voice = voiceRoute(request.method, path)
     const route =
       request.method === 'GET' && path === '/api/health'
         ? 'health'
         : request.method === 'GET' && path === '/api/config'
           ? 'config'
-          : (account ?? 'unmatched_route')
+          : (voice ?? account ?? 'unmatched_route')
     let response: Response
 
     if (route === 'unmatched_route') {
@@ -61,6 +65,8 @@ export default {
           { code: 'CONFIG_INVALID', requestId } satisfies ApiError,
           503,
         )
+      } else if (voice) {
+        response = await handleVoiceRequest(request, config, env, requestId)
       } else if (account) {
         response = await handleAccountRequest(
           request,
@@ -92,5 +98,9 @@ export default {
       }),
     )
     return response
+  },
+  async scheduled(_event, env, context) {
+    const config = readConfiguration(env)
+    if (config) context.waitUntil(reconcileVoiceSessions(config, env))
   },
 } satisfies ExportedHandler<WorkerBindings>

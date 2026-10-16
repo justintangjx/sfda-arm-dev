@@ -85,6 +85,7 @@ export const selectReadinessChecks = (
   if (dataShipped) for (const id of dataChecks) ids.add(id)
   if (shipped.includes('voice')) {
     ids.add('voice_simulation')
+    ids.add('database_voice')
     for (const id of activationChecks) ids.add(id)
   }
   if (phase === 'enable') {

@@ -1,0 +1,26 @@
+--- a/dist/conversation/ConversationProvider.js
++++ b/dist/conversation/ConversationProvider.js
+@@ -155,7 +155,7 @@
+             if (shouldEndRef.current) {
+                 conv
+                     .endSession()
+-                    .catch(error => console.warn("Error ending session:", error));
++                    .catch(() => {});
+                 lockRef.current = null;
+                 return;
+             }
+@@ -192,12 +192,12 @@
+         if (pendingConnection) {
+             pendingConnection.then(c => c
+                 .endSession()
+-                .catch(error => console.warn("Error ending session:", error)), () => { });
++                .catch(() => {}), () => { });
+         }
+         else {
+             conv
+                 ?.endSession()
+-                .catch(error => console.warn("Error ending session:", error));
++                .catch(() => {});
+         }
+     }, []);
+     // Cleanup on unmount

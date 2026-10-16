@@ -18,6 +18,7 @@ export type Provenance = Readonly<{
   baseline: string
   bindings: readonly VoiceContextBinding[]
   proposalIds: readonly string[]
+  sessionIds?: readonly string[]
 }>
 export type Editor = Readonly<{
   context: Context
@@ -33,6 +34,7 @@ export type Proposal = Readonly<{
   id: string
   binding: VoiceContextBinding
   fields: Readonly<Record<TextField, string>>
+  sessionId?: string
 }>
 export const blankForm: Form = {
   observations: '',
@@ -141,6 +143,12 @@ export const applyProposal = (
           baseline: old?.baseline ?? value.form[field],
           bindings: [...(old?.bindings ?? []), proposal.binding],
           proposalIds: [...(old?.proposalIds ?? []), proposal.id],
+          sessionIds: [
+            ...new Set([
+              ...(old?.sessionIds ?? []),
+              ...(proposal.sessionId ? [proposal.sessionId] : []),
+            ]),
+          ],
         },
       },
     }
@@ -169,6 +177,21 @@ export const invalidateVoice = (
       comparison: canRead
         ? { ...value.comparison, [field]: value.form[field] }
         : {},
+    }
+  }, editor)
+export const invalidateVoiceSessions = (
+  editor: Editor,
+  ids: readonly string[],
+): Editor =>
+  textFields.reduce((value, field) => {
+    const source = value.provenance[field]
+    if (!source?.sessionIds?.some((id) => ids.includes(id))) return value
+    return {
+      ...value,
+      form: { ...value.form, [field]: source.baseline },
+      revision: value.revision + 1,
+      provenance: { ...value.provenance, [field]: undefined },
+      comparison: { ...value.comparison, [field]: value.form[field] },
     }
   }, editor)
 export const reconcileContext = (

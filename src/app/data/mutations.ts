@@ -63,6 +63,8 @@ const errorCodes = [
   'ACCOUNT_DISABLED',
   'ACCOUNT_SETUP_PENDING',
   'RECONCILIATION_REQUIRED',
+  'VOICE_CONTEXT_CHANGED',
+  'VOICE_BUSY',
   'DATABASE_ERROR',
 ] as const
 export type DataErrorCode =

@@ -231,7 +231,9 @@ Let the coach speak with an embedded conversational assistant about the selected
 
 **Done when:** the English conversation preserves stated facts and uncertainty, the coach can edit and approve the draft, player and campaign context stays bound to the session, cancellation or provider failure preserves manual entry, audio handling meets the confirmed discard rule, and no agent action saves or submits feedback without coach approval.
 
-**Spec:** [0008](../specs/0008-conversational-voice-feedback/index.md), design confirmed on 8 October 2026 after independent critique and six approved fixes. Implementation remains unstarted and requires separate authorisation.
+**Spec:** [0008](../specs/0008-conversational-voice-feedback/index.md), design confirmed on 8 October 2026 after independent critique and six approved fixes. You authorised implementation through `/develop` on 14 October 2026. The local build is present. The feature remains in progress because provider setup and real conversation evidence are missing.
+
+**Code:** session lifecycle and filing guards in [supabase/migrations](../../supabase/migrations/), shared contracts in [src/domain/voice.ts](../../src/domain/voice.ts), authenticated routes and provider checks in [src/worker/voice.ts](../../src/worker/voice.ts), capture and review integration in [src/app/voice](../../src/app/voice/), trusted local records and compatibility tooling in [tools/harness](../../tools/harness/) and [scripts/voice-local.ts](../../scripts/voice-local.ts), missing provider configuration in [verification/voice-config.json](../../verification/voice-config.json), and twenty speech definitions in [verification/cases/voice-speech.json](../../verification/cases/voice-speech.json). You confirmed that private provider setup is still needed. The SQL base from your synthesis was retained and hardened for projection privacy, frozen credential rules, configuration refusals, owner cancellation and filing guards. Local checks do not establish live provider compatibility, speech quality, actual device behaviour or privacy deletion. Build milestones stay open until their real evidence exists.
 
 * [x] Design voice capture (spec): `/architect conversational voice feedback`
 * [ ] Build it: `/develop conversational voice feedback`
@@ -241,7 +243,7 @@ Let the coach speak with an embedded conversational assistant about the selected
   * [ ] Collect the ten text and twenty speech cases, actual device and accessibility evidence, and fresh human review for the approved activation path. AC-2, AC-3, AC-4, AC-5, AC-6, AC-10, AC-11, AC-12, AC-13, AC-14.
 * [ ] Verify it: `/check verify conversational voice feedback`
 * [ ] Test it: `/test conversational voice feedback`
-* [ ] Review it (fresh model): `/check review conversational voice feedback`
+* [x] Review it (fresh model): `/check review conversational voice feedback`
 * [ ] Document it: `/document conversational voice feedback`
 
 ## Slice 5: Complete the campaign

@@ -469,7 +469,7 @@ export const createLiveCoachAdapter = (client: Client): CoachAdapter => {
         if (
           command.context.actorId !== actor.id ||
           command.context.kind !== 'preparation' ||
-          command.voiceBindings.length
+          (command.voiceBindings.length > 0 && !command.voiceSessionIds?.length)
         )
           return failure('FORBIDDEN', command.mutationId)
         const access = await getAccess(actor)
@@ -488,6 +488,7 @@ export const createLiveCoachAdapter = (client: Client): CoachAdapter => {
           review_confirmed: true,
           draft_id: command.draftId ?? null,
           expected_version: command.expectedVersion ?? null,
+          voice_session_ids: [...(command.voiceSessionIds ?? [])],
         }
         const result =
           command.action === 'discard'

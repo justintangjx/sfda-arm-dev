@@ -260,12 +260,16 @@ export type VoiceState =
   | 'cancelled'
   | 'failed'
 export type VoiceAdapter = Readonly<{
-  evidence: 'fixture'
+  evidence: 'fixture' | 'live'
   state: VoiceState
   proposal: Proposal | undefined
   start: () => void
   stop: () => void
   cancel: () => void
+  caption?: string
+  message?: string
+  remainingSeconds?: number
+  startUnavailable?: boolean
 }>
 // Isolated UI tests may inject this simulated adapter. Public routes never do.
 export function VoicePanel({
@@ -282,6 +286,7 @@ export function VoicePanel({
   const [selection, setSelection] = useState<
     Readonly<{ proposalId: string | undefined; fields: readonly TextField[] }>
   >({ proposalId: undefined, fields: [] })
+  const [acknowledged, setAcknowledged] = useState(false)
   const selected =
     selection.proposalId === adapter.proposal?.id ? selection.fields : []
   const setSelected = (fields: readonly TextField[]) =>
@@ -300,19 +305,55 @@ export function VoicePanel({
     <section className={styles.card} aria-label="Speak feedback">
       <h3>Speak feedback</h3>
       <p>
-        Simulated voice, fixture evidence only.{' '}
+        {adapter.evidence === 'fixture'
+          ? 'Simulated voice, fixture evidence only. '
+          : ''}
         {editor.context.kind === 'final'
           ? 'Final assessment'
           : 'Preparation observation'}{' '}
         for reference {editor.context.playerId.slice(0, 8)}.
       </p>
       <p role="status">{labels[adapter.state]}</p>
+      {adapter.evidence === 'live' && (
+        <>
+          <p>
+            Your speech is sent to ElevenLabs to prepare text for your review.
+            Audio saving is off. Conversation text is scheduled for deletion.
+            Only share observations you are authorised to share.
+          </p>
+          <label>
+            <input
+              type="checkbox"
+              checked={acknowledged}
+              onChange={(event) => setAcknowledged(event.target.checked)}
+            />{' '}
+            I understand and am authorised to share these observations.
+          </label>
+          {adapter.caption && (
+            <p aria-live="polite" className={styles.plainText}>
+              {adapter.caption}
+            </p>
+          )}
+          {adapter.message && <p role="status">{adapter.message}</p>}
+          {adapter.remainingSeconds !== undefined && (
+            <p>Time remaining: {adapter.remainingSeconds} seconds</p>
+          )}
+        </>
+      )}
       <div className={styles.actions}>
         <button
           type="button"
-          onClick={adapter.start}
+          onClick={() => {
+            adapter.start()
+            setAcknowledged(false)
+          }}
           disabled={
-            locked || !['idle', 'failed', 'cancelled'].includes(adapter.state)
+            locked ||
+            adapter.startUnavailable ||
+            (adapter.evidence === 'live' && !acknowledged) ||
+            !['idle', 'failed', 'cancelled', 'proposal_ready'].includes(
+              adapter.state,
+            )
           }
         >
           Start conversation
@@ -324,7 +365,7 @@ export function VoicePanel({
             !['listening', 'assistant_speaking'].includes(adapter.state)
           }
         >
-          Stop
+          {adapter.evidence === 'live' ? 'Finish and review' : 'Stop'}
         </button>
         <button type="button" onClick={adapter.cancel}>
           Cancel conversation
@@ -339,6 +380,10 @@ export function VoicePanel({
                 <input
                   type="checkbox"
                   checked={selected.includes(field)}
+                  disabled={
+                    adapter.evidence === 'live' &&
+                    !adapter.proposal?.fields[field]
+                  }
                   onChange={(event) =>
                     setSelected(
                       event.target.checked

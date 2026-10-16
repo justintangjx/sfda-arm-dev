@@ -26,7 +26,7 @@ import {
   safeRunDirectory,
 } from './io.js'
 import { forbiddenCredentials } from './process.js'
-import { validateCorpus } from './eval.js'
+import { validateCorpus, validateSpeechCorpus } from './eval.js'
 import { compactSummary, readinessResults } from './readiness.js'
 import { evidenceRule, loadTrustedResults } from './evidence.js'
 import type { Evidence } from './evidence.js'
@@ -39,6 +39,13 @@ import {
 import type { ProductionTarget } from './migrations.js'
 import { productionTargetAdapter } from './future-adapters.js'
 import * as v from './validation.js'
+import {
+  issueLocalVoiceRun,
+  pruneLocalVoiceRuns,
+  validateVoiceLocalRequest,
+  validateVoicePricing,
+} from './voice-local.js'
+import { runVoiceCompatibilityProbe } from './voice-probe.js'
 
 type Options = Readonly<{
   mode: Report['mode']
@@ -53,6 +60,7 @@ type Options = Readonly<{
   maxCases: number
   cases: readonly string[] | undefined
   costAcknowledged: boolean
+  voiceRequest: string | undefined
 }>
 export const parseOptions = (args: readonly string[]): Options => {
   const values = new Map<string, string>()
@@ -68,6 +76,7 @@ export const parseOptions = (args: readonly string[]): Options => {
     '--target-sha',
     '--max-cases',
     '--cases',
+    '--voice-request',
   ]
   for (let index = 0; index < args.length; index++) {
     const key = args[index]
@@ -132,10 +141,11 @@ export const parseOptions = (args: readonly string[]): Options => {
     mode !== 'voice-live' &&
     (values.has('--max-cases') ||
       values.has('--cases') ||
+      values.has('--voice-request') ||
       toggles.has('--acknowledge-cost'))
   )
     v.invalid()
-  for (const key of ['--output', '--manifest', '--evidence'])
+  for (const key of ['--output', '--manifest', '--evidence', '--voice-request'])
     if (values.has(key)) v.relativePath(values.get(key))
   if (values.has('--target-sha')) v.sha(values.get('--target-sha'))
   return {
@@ -151,6 +161,7 @@ export const parseOptions = (args: readonly string[]): Options => {
     maxCases,
     cases,
     costAcknowledged: toggles.has('--acknowledge-cost'),
+    voiceRequest: values.get('--voice-request'),
   }
 }
 const validateCoverage = async (root: string) => {
@@ -275,6 +286,10 @@ const main = async () => {
     registry,
   )
   const corpus = validateCorpus(JSON.parse(corpusBytes.toString('utf8')))
+  validateSpeechCorpus(
+    await json(join(root, 'verification/cases/voice-speech.json')),
+    corpus,
+  )
   const owners = validateOwners(
     await json(join(root, 'verification/owners.json')),
   )
@@ -440,6 +455,89 @@ const main = async () => {
       if (cases.some((id) => !corpus.cases.some((item) => item.id === id)))
         v.invalid()
       console.log(`Selected synthetic cases: ${cases.join(', ')}`)
+      // The private bootstrap is local only. A CLI Boolean without the maintainer's
+      // reviewed private request never grants an application or provider session.
+      if (options.voiceRequest) {
+        if (
+          env.APP_ENV !== 'local' ||
+          env.GITHUB_ACTIONS === 'true' ||
+          !options.voiceRequest.startsWith('.local/voice-verification/')
+        )
+          v.invalid()
+        const requestPath = join(root, options.voiceRequest)
+        if ((await realpath(requestPath)) !== requestPath) v.invalid()
+        const request = validateVoiceLocalRequest(await json(requestPath))
+        const configuration = v.record(
+          await json(join(root, 'verification/voice-config.json')),
+        )
+        if (configuration.status === 'unconfigured') {
+          console.log(
+            'Voice configuration is missing. No local authority was issued.',
+          )
+        } else {
+          const pricingPath = join(
+            root,
+            '.local/voice-verification/pricing.json',
+          )
+          if ((await realpath(pricingPath)) !== pricingPath) v.invalid()
+          const pricing = validateVoicePricing(
+            await json(pricingPath),
+            request.pricingReference,
+            Date.now(),
+          )
+          console.log(
+            `Reviewed plan: ${pricing.plan}. Voice charge basis: ${pricing.voiceChargeBasis}. Model charge basis: ${pricing.modelChargeBasis}.`,
+          )
+          await pruneLocalVoiceRuns(root, Date.now())
+          const canonical = (value: unknown): string =>
+            Array.isArray(value)
+              ? `[${value.map(canonical).join(',')}]`
+              : value !== null && typeof value === 'object'
+                ? `{${Object.keys(value)
+                    .sort()
+                    .map(
+                      (key) =>
+                        `${JSON.stringify(key)}:${canonical((value as Record<string, unknown>)[key])}`,
+                    )
+                    .join(',')}}`
+                : JSON.stringify(value)
+          const issued = await issueLocalVoiceRun({
+            root,
+            runId,
+            request,
+            costAcknowledged: options.costAcknowledged,
+            inputFingerprint,
+            runtimeFingerprint,
+            corpusFingerprint: hash(corpusBytes),
+            configurationFingerprint: hash(canonical(configuration)),
+            now: Date.now(),
+          })
+          console.log(
+            `Private local run prepared: .local/voice-verification/${issued.record.runId}.json. It expires in fifteen minutes.`,
+          )
+          if (request.mode === 'compatibility') {
+            if (!env.ELEVENLABS_API_KEY) v.invalid()
+            console.log(
+              `Compatibility probe: one credential, ${request.connectionAttempts} explicitly selected connection attempts, 300 seconds per call, fifteen minutes overall. Pricing reference: ${request.pricingReference}`,
+            )
+            const observation = await runVoiceCompatibilityProbe({
+              root,
+              request,
+              manifest: configuration,
+              key: env.ELEVENLABS_API_KEY,
+              signal: controller.signal,
+              env,
+            })
+            await atomicJson(
+              join(runDirectory, 'voice-compatibility.json'),
+              observation,
+            )
+            console.log(
+              'Synthetic compatibility observations recorded. Full timing contracts, privacy observations and actual device evidence remain separate.',
+            )
+          }
+        }
+      }
       for (const id of ['voice_live', 'voice_audio'])
         results.push(
           resultFor(

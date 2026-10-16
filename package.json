@@ -12,6 +12,7 @@
     "dev": "vite",
     "dev:preview": "CLOUDFLARE_ENV=preview vite",
     "dev:local": "node scripts/live-local.ts dev",
+    "dev:voice": "node scripts/voice-local.ts",
     "build": "pnpm typecheck && vite build",
     "build:preview": "pnpm typecheck && CLOUDFLARE_ENV=preview vite build",
     "typegen": "wrangler types",
@@ -37,6 +38,7 @@
     "verify": "node scripts/verify.ts"
   },
   "dependencies": {
+    "@elevenlabs/react": "1.17.0",
     "@supabase/supabase-js": "^2.117.3",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",

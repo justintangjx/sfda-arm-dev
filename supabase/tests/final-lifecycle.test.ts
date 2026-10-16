@@ -980,7 +980,7 @@ describe('real final lifecycle and retention (AC-1 through AC-16)', () => {
       atMidnight: '2026-01-02',
       fingerprintText: serialised,
       fingerprint: createHash('sha256').update(serialised).digest('hex'),
-      rlsTables: 12,
+      rlsTables: 13,
       cascadingForeignKeys: 0,
       unsafeFunctions: 0,
       historyInvokesCaller: true,

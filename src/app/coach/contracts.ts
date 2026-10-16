@@ -153,6 +153,7 @@ export type Command = Readonly<{
   draftId: string | undefined
   expectedVersion: number | undefined
   voiceBindings: readonly VoiceContextBinding[]
+  voiceSessionIds?: readonly string[]
   reviewConfirmed: true
 }>
 export type Commit =

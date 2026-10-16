@@ -312,6 +312,22 @@
         {
           "path": "docs/specs/0003-verification-harness-eval-contract/index.md",
           "criteria": ["AC-3", "AC-9", "AC-10", "AC-11"]
+        },
+        {
+          "path": "docs/specs/0008-conversational-voice-feedback/index.md",
+          "criteria": [
+            "AC-1",
+            "AC-3",
+            "AC-4",
+            "AC-5",
+            "AC-6",
+            "AC-7",
+            "AC-8",
+            "AC-9",
+            "AC-10",
+            "AC-12",
+            "AC-14"
+          ]
         }
       ],
       "capabilities": ["voice"],
@@ -326,6 +342,10 @@
         {
           "path": "docs/specs/0003-verification-harness-eval-contract/index.md",
           "criteria": ["AC-8", "AC-9", "AC-11", "AC-12"]
+        },
+        {
+          "path": "docs/specs/0008-conversational-voice-feedback/index.md",
+          "criteria": ["AC-2", "AC-13", "AC-14"]
         }
       ],
       "capabilities": ["voice"],
@@ -340,6 +360,22 @@
         {
           "path": "docs/specs/0003-verification-harness-eval-contract/index.md",
           "criteria": ["AC-9", "AC-10", "AC-11", "AC-12"]
+        },
+        {
+          "path": "docs/specs/0008-conversational-voice-feedback/index.md",
+          "criteria": [
+            "AC-1",
+            "AC-2",
+            "AC-3",
+            "AC-4",
+            "AC-5",
+            "AC-6",
+            "AC-7",
+            "AC-8",
+            "AC-10",
+            "AC-12",
+            "AC-14"
+          ]
         }
       ],
       "capabilities": ["voice"],
@@ -354,6 +390,18 @@
         {
           "path": "docs/specs/0003-verification-harness-eval-contract/index.md",
           "criteria": ["AC-4", "AC-10", "AC-12", "AC-13"]
+        },
+        {
+          "path": "docs/specs/0008-conversational-voice-feedback/index.md",
+          "criteria": [
+            "AC-2",
+            "AC-3",
+            "AC-4",
+            "AC-8",
+            "AC-10",
+            "AC-13",
+            "AC-14"
+          ]
         }
       ],
       "capabilities": ["voice"],
@@ -368,6 +416,10 @@
         {
           "path": "docs/specs/0003-verification-harness-eval-contract/index.md",
           "criteria": ["AC-10", "AC-12", "AC-13"]
+        },
+        {
+          "path": "docs/specs/0008-conversational-voice-feedback/index.md",
+          "criteria": ["AC-9", "AC-11", "AC-12", "AC-14"]
         }
       ],
       "capabilities": ["voice"],
@@ -382,6 +434,10 @@
         {
           "path": "docs/specs/0003-verification-harness-eval-contract/index.md",
           "criteria": ["AC-4", "AC-10", "AC-12", "AC-13"]
+        },
+        {
+          "path": "docs/specs/0008-conversational-voice-feedback/index.md",
+          "criteria": ["AC-4", "AC-10", "AC-12", "AC-14"]
         }
       ],
       "capabilities": ["voice", "pilot"],
@@ -485,6 +541,29 @@
       "capabilities": ["pilot"],
       "adapterId": "activation_state",
       "timeoutSeconds": 60
+    },
+    {
+      "id": "database_voice",
+      "name": "Voice reservations, permissions and atomic filing",
+      "evidenceKind": "local_database",
+      "specs": [
+        {
+          "path": "docs/specs/0008-conversational-voice-feedback/index.md",
+          "criteria": [
+            "AC-1",
+            "AC-3",
+            "AC-6",
+            "AC-7",
+            "AC-8",
+            "AC-9",
+            "AC-12",
+            "AC-14"
+          ]
+        }
+      ],
+      "capabilities": ["voice"],
+      "adapterId": "database_voice",
+      "timeoutSeconds": 120
     }
   ]
 }

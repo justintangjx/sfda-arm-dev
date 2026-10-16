@@ -10,7 +10,7 @@ export type VoiceCase = Readonly<{
   id: string
   version: number
   synthetic: true
-  modality: 'text'
+  modality: 'text' | 'audio'
   playerContextId: string
   coachTurns: readonly string[]
   essentialFacts: readonly Readonly<{ id: string; text: string }>[]
@@ -41,6 +41,73 @@ export const validateCorpus = (value: unknown): Corpus => {
     v.unique(item.essentialFacts.map((fact) => fact.id))
     v.unique(item.forbiddenOutcomes)
   }
+  return corpus
+}
+export type SpeechCase = VoiceCase &
+  Readonly<{
+    modality: 'audio'
+    sourceCaseId: string
+    condition: 'clean' | 'noisy'
+    assetPath: string | null
+    assetDigest: string | null
+    rightsReference: string | null
+  }>
+export const validateSpeechCorpus = (value: unknown, text: Corpus): Corpus => {
+  const corpus = v.parse<
+    Readonly<{ schemaVersion: 1; cases: readonly SpeechCase[] }>
+  >(
+    value,
+    v.exact({
+      schemaVersion: v.oneOf([1]),
+      cases: v.list(
+        v.exact({
+          id: v.id,
+          version: v.integer(1, 1000),
+          synthetic: (value) => {
+            if (value !== true) v.invalid()
+          },
+          modality: v.oneOf(['audio']),
+          sourceCaseId: v.id,
+          condition: v.oneOf(['clean', 'noisy']),
+          playerContextId: v.id,
+          coachTurns: v.list(v.string, 1),
+          essentialFacts: v.list(v.exact({ id: v.id, text: v.string }), 1),
+          forbiddenOutcomes: v.list(v.oneOf(criticalFindings), 3, 3),
+          expectedFollowUp: v.string,
+          assetPath: v.nullable(v.relativePath),
+          assetDigest: v.nullable(v.digest),
+          rightsReference: v.nullable(v.string),
+        }),
+        20,
+        20,
+      ),
+    }),
+  )
+  v.unique(corpus.cases.map((item) => item.id))
+  for (const item of corpus.cases) {
+    const source = text.cases.find((c) => c.id === item.sourceCaseId)
+    if (
+      !source ||
+      source.playerContextId !== item.playerContextId ||
+      JSON.stringify(source.essentialFacts) !==
+        JSON.stringify(item.essentialFacts) ||
+      JSON.stringify(source.coachTurns) !== JSON.stringify(item.coachTurns) ||
+      JSON.stringify(source.forbiddenOutcomes) !==
+        JSON.stringify(item.forbiddenOutcomes) ||
+      (item.assetPath === null) !== (item.assetDigest === null) ||
+      (item.assetPath === null) !== (item.rightsReference === null)
+    )
+      v.invalid()
+  }
+  for (const source of text.cases)
+    for (const condition of ['clean', 'noisy'])
+      if (
+        corpus.cases.filter(
+          (item) =>
+            item.sourceCaseId === source.id && item.condition === condition,
+        ).length !== 1
+      )
+        v.invalid()
   return corpus
 }
 export type ProposedOutput = Readonly<{
@@ -104,6 +171,14 @@ export const validateCaseResult = (
 ): CaseResult => {
   const result = v.parse<CaseResult>(value, caseResultRule)
   const item = corpus.cases.find((item) => item.id === result.caseId)
+  if (
+    item?.modality === 'audio' &&
+    (!('assetDigest' in item) ||
+      !item.assetDigest ||
+      !('rightsReference' in item) ||
+      !item.rightsReference)
+  )
+    v.invalid()
   if (
     !item ||
     result.version !== item.version ||

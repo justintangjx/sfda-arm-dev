@@ -10,6 +10,7 @@
     "run_worker_first": ["/api", "/api/*", "/auth/setup", "/auth/recovery"],
   },
   "observability": { "enabled": true },
+  "triggers": { "crons": ["0 * * * *"] },
   "vars": {
     "APP_ENV": "local",
     "APP_ORIGIN": "http://127.0.0.1:5173",

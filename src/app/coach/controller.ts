@@ -15,6 +15,7 @@ import {
   toContent,
   toForm,
   writable,
+  invalidateVoiceSessions,
   type Editor,
 } from './editor'
 import { voiceContextMatches } from '../../domain/feedback'
@@ -48,6 +49,7 @@ const ambiguous = (result: DataResult<Commit>) =>
 export const createCoachController = (actor: Actor, adapter: CoachAdapter) => {
   let state = initialState
   let disposed = false
+  const invalidSessionIds = new Set<string>()
   const getSnapshot = (): CoachState => state
   const listeners = new Set<() => void>()
   const publish = (next: CoachState) => {
@@ -91,6 +93,13 @@ export const createCoachController = (actor: Actor, adapter: CoachAdapter) => {
       voiceBindings: Object.values(snapshot.provenance).flatMap(
         (value) => value?.bindings ?? [],
       ),
+      voiceSessionIds: [
+        ...new Set(
+          Object.values(snapshot.provenance).flatMap(
+            (value) => value?.sessionIds ?? [],
+          ),
+        ),
+      ],
       reviewConfirmed: true,
     }
     publish({
@@ -181,6 +190,14 @@ export const createCoachController = (actor: Actor, adapter: CoachAdapter) => {
     updateEditor: (editor: Editor) => {
       if (!state.pending) publish({ ...state, editor })
     },
+    invalidateVoiceSessions: (ids: readonly string[]) => {
+      ids.forEach((id) => invalidSessionIds.add(id))
+      if (state.editor && !state.pending)
+        publish({
+          ...state,
+          editor: invalidateVoiceSessions(state.editor, ids),
+        })
+    },
     open: (workspace: Workspace, kind: Editor['context']['kind']) => {
       const context = {
         actorId: actor.id,
@@ -267,7 +284,15 @@ export const createCoachController = (actor: Actor, adapter: CoachAdapter) => {
         publish({
           ...state,
           pending: undefined,
-          editor: reconcileContext(pending.snapshot, actor, workspace),
+          editor: invalidateVoiceSessions(
+            reconcileContext(pending.snapshot, actor, workspace),
+            [
+              ...invalidSessionIds,
+              ...(['VOICE_CONTEXT_CHANGED', 'NOT_FOUND'].includes(result.code)
+                ? (pending.command.voiceSessionIds ?? [])
+                : []),
+            ],
+          ),
           conflict: ['VERSION_CONFLICT', 'DRAFT_EXISTS'].includes(result.code)
             ? workspace
             : undefined,
