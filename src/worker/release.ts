@@ -95,8 +95,7 @@ export const openAccounts = async (
     !config.supabasePublicKey ||
     (config.appEnv === 'local' && !loopback(config.supabaseUrl)) ||
     typeof adminKey !== 'string' ||
-    !adminKey.trim() ||
-    config.voiceEnabled
+    !adminKey.trim()
   )
     return fail('CONFIG_INVALID')
   const origin = request.headers.get('Origin')

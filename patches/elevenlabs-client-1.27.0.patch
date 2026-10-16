@@ -1,0 +1,159 @@
+--- a/dist/BaseConversation.js
++++ b/dist/BaseConversation.js
+@@ -12,7 +12,7 @@
+     if (typeof textOnly === "boolean") {
+         if (typeof textOnlyOverride === "boolean" &&
+             textOnly !== textOnlyOverride) {
+-            console.warn(`Conflicting textOnly options provided: ${textOnly} via options.textOnly (will be used) and ${textOnlyOverride} via options.overrides.conversation.textOnly (will be ignored)`);
++            console.warn('VOICE_SDK_ERROR');
+         }
+         return textOnly;
+     }
+@@ -554,7 +554,7 @@
+         }
+     };
+     onError(message, context) {
+-        console.error(message, context);
++        console.warn('VOICE_SDK_ERROR');
+         if (this.options.onError) {
+             this.options.onError(message, context);
+         }
+@@ -570,7 +570,7 @@
+     }
+     sendFeedback(like, eventId) {
+         if (!this.canSendFeedback) {
+-            console.warn("Cannot send feedback: the conversation is not connected.");
++            console.warn('VOICE_SDK_ERROR');
+             return;
+         }
+         this.connection.sendMessage({
+--- a/dist/VoiceConversation.js
++++ b/dist/VoiceConversation.js
+@@ -118,7 +118,7 @@
+             });
+         }
+         catch (error) {
+-            console.error("Error changing input device", error);
++            console.warn('VOICE_SDK_ERROR');
+             throw error;
+         }
+     }
+@@ -131,7 +131,7 @@
+             });
+         }
+         catch (error) {
+-            console.error("Error changing output device", error);
++            console.warn('VOICE_SDK_ERROR');
+             throw error;
+         }
+     }
+--- a/dist/utils/WebRTCConnection.js
++++ b/dist/utils/WebRTCConnection.js
+@@ -44,7 +44,7 @@
+                     });
+                 }
+                 catch (error) {
+-                    console.warn("Error stopping local tracks:", error);
++                    console.warn('VOICE_SDK_ERROR');
+                 }
+             }
+         },
+@@ -66,7 +66,7 @@
+         },
+         setMuted: async (isMuted) => {
+             if (!this.isConnected || !this.room.localParticipant) {
+-                console.warn("Cannot set microphone muted: room not connected or no local participant");
++                console.warn('VOICE_SDK_ERROR');
+                 return;
+             }
+             // Set immediately so volume/frequency indicators reflect the muted
+@@ -325,12 +325,12 @@
+                     this.handleMessage(message);
+                 }
+                 else {
+-                    console.warn("Invalid socket event received:", message);
++                    console.warn('VOICE_SDK_ERROR');
+                 }
+             }
+             catch (error) {
+-                console.warn("Failed to parse incoming data message:", error);
+-                console.warn("Raw payload:", new TextDecoder().decode(payload));
++                console.warn('VOICE_SDK_ERROR');
++                console.warn('VOICE_SDK_ERROR');
+             }
+         });
+         this.room.on(RoomEvent.TrackSubscribed, async (track, _publication, participant) => {
+@@ -374,7 +374,7 @@
+                 });
+             }
+             catch (error) {
+-                console.warn("Error stopping local tracks:", error);
++                console.warn('VOICE_SDK_ERROR');
+             }
+             // Delegate all audio cleanup to the adapter
+             this.audioAdapter?.cleanup();
+@@ -387,7 +387,7 @@
+     }
+     async sendMessage(message) {
+         if (!this.isConnected || !this.room.localParticipant) {
+-            console.warn("Cannot send message: room not connected or no local participant");
++            console.warn('VOICE_SDK_ERROR');
+             return;
+         }
+         // In WebRTC mode, audio is sent via published tracks, not data messages
+@@ -407,7 +407,7 @@
+                     error,
+                 },
+             });
+-            console.error("Failed to send message via WebRTC:", error);
++            console.warn('VOICE_SDK_ERROR');
+         }
+     }
+     /**
+@@ -446,7 +446,7 @@
+         catch (error) {
+             // Don't reset inputVolumeProvider here — an external provider (e.g.
+             // React Native's native volume layer) may still be valid.
+-            console.warn("[ConversationalAI] Failed to set up input volume analyser:", error);
++            console.warn('VOICE_SDK_ERROR');
+         }
+     }
+     setInputVolumeProvider(provider) {
+@@ -481,7 +481,7 @@
+             this.outputAnalyser = result.analyser;
+         }
+         catch (error) {
+-            console.warn("Failed to set up audio capture:", error);
++            console.warn('VOICE_SDK_ERROR');
+         }
+     }
+     setAudioVolume(volume) {
+@@ -518,7 +518,7 @@
+             });
+         }
+         catch (error) {
+-            console.error("Failed to change input device:", error);
++            console.warn('VOICE_SDK_ERROR');
+             const publication = this.room.localParticipant.getTrackPublication(Track.Source.Microphone);
+             if (publication?.track !== audioTrack) {
+                 audioTrack.stop();
+@@ -534,7 +534,7 @@
+                     }
+                 }
+                 catch (recoveryError) {
+-                    console.error("Failed to recover microphone after device switch error:", recoveryError);
++                    console.warn('VOICE_SDK_ERROR');
+                 }
+             }
+             throw error;
+--- a/dist/utils/errors.js
++++ b/dist/utils/errors.js
+@@ -11,7 +11,7 @@
+         }
+     }
+     catch (error) {
+-        console.warn("Failed to parse API error response as JSON:", error);
++        console.warn('VOICE_SDK_ERROR');
+     }
+     return response.statusText || "Unknown error";
+ }

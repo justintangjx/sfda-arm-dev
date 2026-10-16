@@ -293,6 +293,38 @@ isOneToOne: false
                   Relationships: [
                     
                   ]
+                },"voice_sessions": {
+                  Row: {
+                    "agent_version_id": string | null,"authorisation_evidence_id": string | null,"authorisation_kind": Database["public"]['Enums']["voice_authorisation_kind"] | null,"authorisation_until": string | null,"caller_version": number,"campaign_id": string,"campaign_version": number,"capture_rule": string | null,"claimed_agent_id": string | null,"coach_id": string,"coach_membership_version": number,"competition_id": string,"config_fingerprint": string | null,"connected_at": string | null,"created_at": string,"credential_rule": string | null,"credential_valid_until": string | null,"dispatch_authorised_at": string | null,"dispatch_id": string | null,"dispatch_started_at": string | null,"dispatch_until": string | null,"duration_seconds": number | null,"ended_at": string | null,"failure_code": string | null,"finish_requested_at": string | null,"hold_until": string | null,"id": string,"identity_verified_at": string | null,"kind": Database["public"]['Enums']["feedback_kind"],"local_ended_at": string | null,"local_outcome": Database["public"]['Enums']["voice_local_outcome"],"player_id": string,"player_membership_version": number,"proposal_accepted_at": string | null,"proposal_id": string | null,"proposal_revoked_at": string | null,"provider_conversation_id": string | null,"provider_state": Database["public"]['Enums']["voice_provider_state"],"provider_terminal_at": string | null,"reservation_until": string,"start_request_id": string,"status": Database["public"]['Enums']["voice_session_status"] | null,"updated_at": string,"version": number
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "agent_version_id"?: string | null,"authorisation_evidence_id"?: string | null,"authorisation_kind"?: Database["public"]['Enums']["voice_authorisation_kind"] | null,"authorisation_until"?: string | null,"caller_version": number,"campaign_id": string,"campaign_version": number,"capture_rule"?: string | null,"claimed_agent_id"?: string | null,"coach_id": string,"coach_membership_version": number,"competition_id": string,"config_fingerprint"?: string | null,"connected_at"?: string | null,"created_at"?: string,"credential_rule"?: string | null,"credential_valid_until"?: string | null,"dispatch_authorised_at"?: string | null,"dispatch_id"?: string | null,"dispatch_started_at"?: string | null,"dispatch_until"?: string | null,"duration_seconds"?: number | null,"ended_at"?: string | null,"failure_code"?: string | null,"finish_requested_at"?: string | null,"hold_until"?: string | null,"id"?: string,"identity_verified_at"?: string | null,"kind": Database["public"]['Enums']["feedback_kind"],"local_ended_at"?: string | null,"local_outcome"?: Database["public"]['Enums']["voice_local_outcome"],"player_id": string,"player_membership_version": number,"proposal_accepted_at"?: string | null,"proposal_id"?: string | null,"proposal_revoked_at"?: string | null,"provider_conversation_id"?: string | null,"provider_state"?: Database["public"]['Enums']["voice_provider_state"],"provider_terminal_at"?: string | null,"reservation_until": string,"start_request_id": string,"status"?: never,"updated_at"?: string,"version"?: number
+                  }
+                  Update: {
+                    "agent_version_id"?: string | null,"authorisation_evidence_id"?: string | null,"authorisation_kind"?: Database["public"]['Enums']["voice_authorisation_kind"] | null,"authorisation_until"?: string | null,"caller_version"?: number,"campaign_id"?: string,"campaign_version"?: number,"capture_rule"?: string | null,"claimed_agent_id"?: string | null,"coach_id"?: string,"coach_membership_version"?: number,"competition_id"?: string,"config_fingerprint"?: string | null,"connected_at"?: string | null,"created_at"?: string,"credential_rule"?: string | null,"credential_valid_until"?: string | null,"dispatch_authorised_at"?: string | null,"dispatch_id"?: string | null,"dispatch_started_at"?: string | null,"dispatch_until"?: string | null,"duration_seconds"?: number | null,"ended_at"?: string | null,"failure_code"?: string | null,"finish_requested_at"?: string | null,"hold_until"?: string | null,"id"?: string,"identity_verified_at"?: string | null,"kind"?: Database["public"]['Enums']["feedback_kind"],"local_ended_at"?: string | null,"local_outcome"?: Database["public"]['Enums']["voice_local_outcome"],"player_id"?: string,"player_membership_version"?: number,"proposal_accepted_at"?: string | null,"proposal_id"?: string | null,"proposal_revoked_at"?: string | null,"provider_conversation_id"?: string | null,"provider_state"?: Database["public"]['Enums']["voice_provider_state"],"provider_terminal_at"?: string | null,"reservation_until"?: string,"start_request_id"?: string,"status"?: never,"updated_at"?: string,"version"?: number
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "voice_sessions_campaign_id_competition_id_fkey"
+      columns: ["campaign_id","competition_id"]
+isOneToOne: false
+      referencedRelation: "campaigns"
+      referencedColumns: ["id","competition_id"]
+    },{
+      foreignKeyName: "voice_sessions_coach_id_fkey"
+      columns: ["coach_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "voice_sessions_competition_id_coach_id_player_id_campaign__fkey"
+      columns: ["competition_id","coach_id","player_id","campaign_id"]
+isOneToOne: false
+      referencedRelation: "competition_pairings"
+      referencedColumns: ["competition_id","coach_id","player_id","campaign_id"]
+    }
+                  ]
                 }
           }
           Views: {
@@ -313,7 +345,10 @@ isOneToOne: false
                 }
           }
           Functions: {
-            "admin_find_account":
+            "accept_voice_proposal":
+{ Args: { "actor_id": string,"proposal_id": string,"session_id": string }; Returns: Json
+                           },
+"admin_find_account":
 { Args: { "email_fingerprint": string }; Returns: Json
                            },
 "admin_get_account":
@@ -334,6 +369,9 @@ isOneToOne: false
 "advance_campaign_stage":
 { Args: { "campaign_id": string,"expected_version": number,"mutation_id": string,"next_stage": Database["public"]['Enums']["campaign_stage"],"reason": string }; Returns: Json
                            },
+"arm_voice_dispatch":
+{ Args: { "actor_id": string,"config": Json,"dispatch_id": string,"session_id": string }; Returns: Json
+                           },
 "begin_account_setup":
 { Args: { "display_name": string,"email_fingerprint": string,"mutation_id": string,"role": Database["public"]['Enums']["account_role"] }; Returns: Json
                            },
@@ -346,11 +384,17 @@ isOneToOne: false
 "begin_setup_link_replacement":
 { Args: { "expected_version": number,"mutation_id": string,"parent_id": string }; Returns: Json
                            },
+"begin_voice_finish":
+{ Args: { "actor_id": string,"config": Json,"expected_version": number,"session_id": string }; Returns: Json
+                           },
 "bootstrap_local_admin":
 { Args: { "display_name": string,"profile_id": string }; Returns: Json
                            },
 "claim_account_setup":
 { Args: { "expected_version": number,"mutation_id": string,"operation_id": string }; Returns: Json
+                           },
+"claim_voice_session":
+{ Args: { "actor_id": string,"authorisation": Json,"config": Json,"session_id": string }; Returns: Json
                            },
 "complete_account_setup":
 { Args: { "expected_version": number,"operation_id": string }; Returns: Json
@@ -370,8 +414,14 @@ isOneToOne: false
 "create_profile":
 { Args: { "display_name": string,"mutation_id": string,"profile_id": string,"role": Database["public"]['Enums']["account_role"] }; Returns: Json
                            },
+"delete_ended_voice_sessions":
+{ Args: { "batch_size": number }; Returns: number
+                           },
 "discard_feedback_draft":
 { Args: { "draft_id": string,"expected_version": number,"mutation_id": string }; Returns: Json
+                           },
+"end_voice_session":
+{ Args: { "actor_id": string,"reason": string,"session_id": string }; Returns: Json
                            },
 "get_account_setup_progress":
 { Args: { "operation_id": string }; Returns: Json
@@ -421,11 +471,23 @@ isOneToOne: false
 "list_final_obligations":
 { Args: { "campaign_id": string,"page_cursor"?: Json,"page_size"?: number,"status_filter"?: string }; Returns: Json
                            },
+"list_voice_reconciliation":
+{ Args: { "after_created_at": string,"after_id": string,"page_size": number }; Returns: Json
+                           },
 "lookup_recovery_identity":
 { Args: { "email_fingerprint": string }; Returns: Json
                            },
 "lookup_setup_auth_identity":
 { Args: { "email_fingerprint"?: string,"planned_id"?: string }; Returns: Json
+                           },
+"observe_voice_provider":
+{ Args: { "actor_id": string,"config": Json,"observation": Json,"session_id": string }; Returns: Json
+                           },
+"read_voice_session":
+{ Args: { "actor_id": string,"session_id": string }; Returns: Json
+                           },
+"reconcile_voice_session":
+{ Args: { "config": Json,"observation": Json,"session_id": string }; Returns: Json
                            },
 "record_account_setup_step":
 { Args: { "actor_id": string,"attempt_generation"?: number,"attempt_id"?: string,"capability_digest"?: string,"claim_id": string,"expected_version": number,"operation_id": string,"safe_code"?: string,"step": string }; Returns: Json
@@ -442,11 +504,20 @@ isOneToOne: false
 "record_setup_sessions_revoked":
 { Args: { "capability_digest": string,"operation_id": string,"target_id": string }; Returns: Json
                            },
+"record_voice_connection":
+{ Args: { "actor_id": string,"config": Json,"expected_version": number,"observation": Json,"sdk_conversation_id": string,"session_id": string }; Returns: Json
+                           },
+"record_voice_issuance":
+{ Args: { "actor_id": string,"dispatch_id": string,"observation": Json,"session_id": string }; Returns: Json
+                           },
 "renew_account_setup_claim":
 { Args: { "actor_id": string,"claim_id": string,"expected_version": number,"operation_id": string }; Returns: Json
                            },
+"reserve_voice_session":
+{ Args: { "campaign_id": string,"player_id": string,"start_request_id": string }; Returns: Json
+                           },
 "save_feedback_draft":
-{ Args: { "campaign_id": string,"content": Json,"draft_id": string,"expected_version": number,"kind": Database["public"]['Enums']["feedback_kind"],"mutation_id": string,"player_id": string,"review_confirmed": boolean }; Returns: Json
+{ Args: { "campaign_id": string,"content": Json,"draft_id": string,"expected_version": number,"kind": Database["public"]['Enums']["feedback_kind"],"mutation_id": string,"player_id": string,"review_confirmed": boolean,"voice_session_ids"?: (string)[] }; Returns: Json
                            },
 "set_campaign_coach":
 { Args: { "active": boolean,"campaign_id": string,"coach_id": string,"expected_version": number,"mutation_id": string,"reason": string }; Returns: Json
@@ -461,7 +532,7 @@ isOneToOne: false
 { Args: { "actor_id"?: string,"capability_digest": string,"claim_id": string,"expected_version": number,"operation_id": string }; Returns: Json
                            },
 "submit_feedback":
-{ Args: { "campaign_id": string,"content": Json,"draft_id": string,"expected_version": number,"kind": Database["public"]['Enums']["feedback_kind"],"mutation_id": string,"player_id": string,"review_confirmed": boolean }; Returns: Json
+{ Args: { "campaign_id": string,"content": Json,"draft_id": string,"expected_version": number,"kind": Database["public"]['Enums']["feedback_kind"],"mutation_id": string,"player_id": string,"review_confirmed": boolean,"voice_session_ids"?: (string)[] }; Returns: Json
                            },
 "update_campaign_metadata":
 { Args: { "campaign_id": string,"expected_version": number,"mutation_id": string,"name": string,"planned_preparation_start_on": string,"reason": string,"team_name": string }; Returns: Json
@@ -472,12 +543,15 @@ isOneToOne: false
 "update_profile_name":
 { Args: { "display_name": string,"expected_version": number,"mutation_id": string,"profile_id": string,"reason": string }; Returns: Json
                            },
+"validate_voice_binding":
+{ Args: { "session_id": string }; Returns: Json
+                           },
 "waive_final_obligation":
 { Args: { "mutation_id": string,"obligation_id": string,"reason": string }; Returns: Json
                            }
           }
           Enums: {
-            "account_role": "admin"|"coach"|"player","campaign_stage": "setup"|"preparation"|"competition"|"final_feedback"|"closed","feedback_kind": "preparation"|"final","feedback_status": "draft"|"submitted"
+            "account_role": "admin"|"coach"|"player","campaign_stage": "setup"|"preparation"|"competition"|"final_feedback"|"closed","feedback_kind": "preparation"|"final","feedback_status": "draft"|"submitted","voice_authorisation_kind": "production_activation"|"local_verification","voice_local_outcome": "open"|"finished"|"failed"|"timed_out"|"cancelled","voice_provider_state": "not_issued"|"unknown"|"live"|"terminal","voice_session_status": "reserved"|"authorising"|"active"|"finishing"|"proposal_ready"|"completed"|"cancelled"|"failed"|"expired"|"uncertain"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -593,7 +667,7 @@ export type CompositeTypes<
 export const Constants = {
   "public": {
           Enums: {
-            "account_role": ["admin", "coach", "player"],"campaign_stage": ["setup", "preparation", "competition", "final_feedback", "closed"],"feedback_kind": ["preparation", "final"],"feedback_status": ["draft", "submitted"]
+            "account_role": ["admin", "coach", "player"],"campaign_stage": ["setup", "preparation", "competition", "final_feedback", "closed"],"feedback_kind": ["preparation", "final"],"feedback_status": ["draft", "submitted"],"voice_authorisation_kind": ["production_activation", "local_verification"],"voice_local_outcome": ["open", "finished", "failed", "timed_out", "cancelled"],"voice_provider_state": ["not_issued", "unknown", "live", "terminal"],"voice_session_status": ["reserved", "authorising", "active", "finishing", "proposal_ready", "completed", "cancelled", "failed", "expired", "uncertain"]
           }
         }
 } as const

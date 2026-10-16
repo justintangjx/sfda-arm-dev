@@ -22,6 +22,7 @@ dist-ssr
 test-results/
 playwright-report/
 .verification/
+.local/
 supabase/.temp/
 supabase/.branches/
 

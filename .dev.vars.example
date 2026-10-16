@@ -4,3 +4,10 @@
 SUPABASE_URL=
 SUPABASE_PUBLIC_KEY=
 SUPABASE_ADMIN_KEY=
+# Voice stays disabled during ordinary local use.
+VOICE_ENABLED=false
+ELEVENLABS_API_KEY=
+ELEVENLABS_AGENT_ID=
+ELEVENLABS_AGENT_VERSION_ID=
+VOICE_CONFIG_FINGERPRINT=
+# The trusted launcher supplies VOICE_LOCAL_RUN_RECORD for an approved synthetic run.

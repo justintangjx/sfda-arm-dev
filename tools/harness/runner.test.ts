@@ -52,6 +52,7 @@ const fixtureRoot = async (exitCode: number) => {
     '0005-first-real-coach-feedback-path',
     '0006-account-roster-operations',
     '0007-campaign-player-workspace',
+    '0008-conversational-voice-feedback',
   ]) {
     await mkdir(join(target, 'docs/specs', name), { recursive: true })
     await cp(

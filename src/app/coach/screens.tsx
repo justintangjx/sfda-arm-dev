@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import {
   Link,
   Navigate,
@@ -56,6 +56,7 @@ import {
 } from './navigation'
 import { performAction, useCoach, useCoachState, useRuntime } from './runtime'
 import styles from './coach.module.css'
+const LiveVoicePanel = lazy(() => import('../voice/LiveVoicePanel'))
 
 const unavailable = (code: string) =>
   ['NOT_FOUND', 'FORBIDDEN', 'AUTH_REQUIRED'].includes(code)
@@ -1119,6 +1120,7 @@ function PlayerWorkspace({
     'final' | 'discard' | 'phase' | undefined
   >(undefined)
   const [localError, setLocalError] = useState('')
+  const [voiceBlocking, setVoiceBlocking] = useState(false)
   const navigationAttempt = useRef(0)
   const [historyRevision, setHistoryRevision] = useState(0)
   const [focusedSubmission, setFocusedSubmission] = useState<
@@ -1302,7 +1304,7 @@ function PlayerWorkspace({
     !allowed ||
     editor.resumeRequired ||
     Boolean(state.conflict)
-  const writesDisabled = locked || !online
+  const writesDisabled = locked || !online || voiceBlocking
   const phaseEnded =
     kindForStage(workspace.campaign.stage) !== editor.context.kind
   const submitted =
@@ -1453,6 +1455,23 @@ function PlayerWorkspace({
                     : 'New feedback'}
               </span>
             </div>
+            {runtime.adapter.evidence === 'live' &&
+              runtime.configuration.voiceEnabled &&
+              editor.context.kind === 'preparation' && (
+                <Suspense
+                  fallback={
+                    <StatusBanner>Loading voice controls…</StatusBanner>
+                  }
+                >
+                  <LiveVoicePanel
+                    key={`${campaignId}:${playerId}`}
+                    editor={editor}
+                    workspace={workspace}
+                    locked={locked || !online}
+                    onBlocking={setVoiceBlocking}
+                  />
+                </Suspense>
+              )}
             {phaseEnded && (
               <StatusBanner>
                 {editor.context.kind === 'preparation'

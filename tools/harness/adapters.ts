@@ -38,6 +38,7 @@ export const resultFor = (
         'database_preparation',
         'database_campaign',
         'database_accounts',
+        'database_voice',
         'browser_preparation',
       ].includes(check.id)
         ? 'sfda_arm_dev_local'
@@ -273,6 +274,9 @@ export const executeCheck = async (
         'vitest',
         'run',
         'src/domain/feedback.test.ts',
+        'src/domain/voice.test.ts',
+        'src/app/voice/controller.test.ts',
+        'src/worker/voice.test.ts',
         '--retry',
         '2',
         '--testTimeout',
@@ -328,6 +332,7 @@ export const executeCheck = async (
       break
     }
     case 'database_preparation':
+    case 'database_voice':
     case 'database_accounts':
     case 'database_campaign': {
       const lock = join(context.root, '.verification/local-database.lock')
@@ -364,16 +369,18 @@ export const executeCheck = async (
               'supabase/tests/coach-workspace.test.ts',
               'supabase/tests/coach-workspace-regression.test.ts',
             ]
-          : check.adapterId === 'database_accounts'
-            ? [
-                'supabase/tests/account-setup.test.ts',
-                'supabase/tests/auth-compatibility.test.ts',
-                'supabase/tests/worker-accounts.test.ts',
-                'supabase/tests/live-adapter.test.ts',
-                'supabase/tests/account-operations.test.ts',
-                'supabase/tests/worker-recovery.test.ts',
-              ]
-            : ['supabase/tests/final-lifecycle.test.ts']),
+          : check.adapterId === 'database_voice'
+            ? ['supabase/tests/voice-sessions.test.ts']
+            : check.adapterId === 'database_accounts'
+              ? [
+                  'supabase/tests/account-setup.test.ts',
+                  'supabase/tests/auth-compatibility.test.ts',
+                  'supabase/tests/worker-accounts.test.ts',
+                  'supabase/tests/live-adapter.test.ts',
+                  'supabase/tests/account-operations.test.ts',
+                  'supabase/tests/worker-recovery.test.ts',
+                ]
+              : ['supabase/tests/final-lifecycle.test.ts']),
         '--retry',
         '2',
         '--testTimeout',

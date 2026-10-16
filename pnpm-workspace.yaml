@@ -1,3 +1,6 @@
 allowBuilds:
   esbuild@0.28.1: true
   workerd@1.20261006.1: true
+patchedDependencies:
+  '@elevenlabs/client@1.27.0': patches/elevenlabs-client-1.27.0.patch
+  '@elevenlabs/react@1.17.0': patches/elevenlabs-react-1.17.0.patch
