@@ -271,9 +271,14 @@ export const handleVoiceRequest = async (
       const gate = await voiceAuthorisation(config, env, target)
       if (
         !gate ||
-        identity.data.user.app_metadata.sfda_voice_fixture_instance_id !==
-          gate.run.fixtureInstanceId ||
         !(await verifyProviderConfiguration(gate.manifest, gate.apiKey))
+      )
+        return failure('VOICE_UNAVAILABLE', requestId)
+      if (
+        gate.authorisation.kind === 'local_verification' &&
+        (!gate.run ||
+          identity.data.user.app_metadata.sfda_voice_fixture_instance_id !==
+            gate.run.fixtureInstanceId)
       )
         return failure('VOICE_UNAVAILABLE', requestId)
       const reserved = await rpc(user, 'reserve_voice_session', {
@@ -323,7 +328,7 @@ export const handleVoiceRequest = async (
       const issued =
         typeof until === 'string' &&
         Date.now() < Date.parse(until) &&
-        Date.now() < Date.parse(current.run.expiresAt)
+        Date.now() < Date.parse(current.authorisation.until)
           ? await issueVoiceCredential(current.manifest, current.apiKey)
           : { outcome: 'not_issued' as const }
       const observation =

@@ -23,6 +23,10 @@ pnpm verify --mode check --profile foundation --checks types,unit
 
 Filters are rejected in readiness mode. Output paths can be repository relative paths inside `.verification/`, for example `--output .verification/diagnostics`. Each invocation creates its own UUID directory and never overwrites another run. Traversal and symlink paths are rejected. An interruption cancels owned children and leaves no completed passing report.
 
+## Manual production hosting
+
+Hosted Supabase, Cloudflare, ElevenLabs, and SMTP setup is documented for operators in [manual-hosting-setup.md](../docs/specs/0009-pilot-release-recovery/manual-hosting-setup.md) (spec 0009). The harness does not perform dashboard provisioning; it validates manifests and readiness when those files exist.
+
 ## Evidence and environments
 
 | Profile     | Coverage                                                                                               |

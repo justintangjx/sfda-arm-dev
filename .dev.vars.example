@@ -10,4 +10,8 @@ ELEVENLABS_API_KEY=
 ELEVENLABS_AGENT_ID=
 ELEVENLABS_AGENT_VERSION_ID=
 VOICE_CONFIG_FINGERPRINT=
+# Production demo voice only: UUID from verification/demo-voice-activation.json
+VOICE_ACTIVATION_EVIDENCE_ID=
+# Production account routes only (Wrangler var, not a secret)
+ACCOUNT_OPERATIONS_ENABLED=false
 # The trusted launcher supplies VOICE_LOCAL_RUN_RECORD for an approved synthetic run.

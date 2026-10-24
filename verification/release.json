@@ -34,6 +34,11 @@
     "verification/database-coverage.json",
     ".github/workflows/checks.yml",
     "verification/voice-config.json",
+    "verification/production-target.example.json",
+    "verification/demo-voice-activation.json",
+    "verification/release-pilot.json",
+    "docs/specs/0009-pilot-release-recovery/manual-hosting-setup.md",
+    ".github/workflows/production-deploy.yml",
     "pnpm-workspace.yaml",
     "patches"
   ],

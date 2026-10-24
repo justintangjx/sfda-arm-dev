@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "workerName": "sfda-arm-dev-production",
+  "appOrigin": "https://sfda-arm-dev-production.example.workers.dev",
+  "supabaseProjectRef": "abcdefghijklmnopqrst",
+  "accountRequestLimiterNamespace": "00000000000000000000000000000001",
+  "accountProjectLimiterNamespace": "00000000000000000000000000000002",
+  "voiceRequestLimiterNamespace": "00000000000000000000000000000003",
+  "voiceProjectLimiterNamespace": "00000000000000000000000000000004",
+  "smtpProvider": {
+    "name": "Example SMTP",
+    "senderDomain": "mail.example.com",
+    "hourlyQuota": 60
+  },
+  "migrationReaderRole": "migration_history_reader",
+  "migrationReader": {
+    "schemaVersion": 1,
+    "alias": "pilot_primary",
+    "host": "db.example.supabase.co",
+    "port": 5432,
+    "database": "postgres",
+    "caDigest": "0000000000000000000000000000000000000000000000000000000000000000",
+    "appOrigin": "https://sfda-arm-dev-production.example.workers.dev"
+  },
+  "recordedAt": "2026-10-21T00:00:00.000Z",
+  "recordedBy": "maintainer@example.com"
+}

@@ -221,6 +221,10 @@ function ConnectedVoicePanel({
       applying.current = false
     }
   }
+  const demoActivationNotice =
+    runtime.configuration.appEnv === 'production'
+      ? 'Demo voice activation is on. This is not pilot approval for real player data.'
+      : undefined
   return (
     <VoicePanel
       adapter={{
@@ -234,7 +238,7 @@ function ConnectedVoicePanel({
           void controller.finish()
         },
         cancel: controller.cancel,
-        caption: state.caption,
+        caption: demoActivationNotice ?? state.caption,
         message:
           state.phase === 'proposal_ready'
             ? applicationMessage || state.message

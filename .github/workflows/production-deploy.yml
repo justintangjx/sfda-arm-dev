@@ -1,0 +1,44 @@
+# Manual production deploy (spec 0009). Requires a protected GitHub environment
+# with Cloudflare and Supabase secrets configured by maintainers.
+name: Production deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_id:
+        description: 40 character git SHA to deploy
+        required: true
+        type: string
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_id }}
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.5.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm verify --mode check --profile foundation
+      - name: Build and deploy Worker
+        env:
+          CLOUDFLARE_ENV: production
+          RELEASE_ID: ${{ inputs.release_id }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          pnpm build
+          pnpm exec wrangler deploy --env production
