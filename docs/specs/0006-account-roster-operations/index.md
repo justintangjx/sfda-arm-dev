@@ -239,7 +239,7 @@ The first thread contains the head, current access and dispatch invariants befor
 
 ## Follow-up
 
-* [ ] Scope feature 11 selects and configures SMTP, approves production setup, records actual delivery and limiter evidence, and resolves real data, consent, minors, region and device gates before pilot.
+* [ ] Specification [0009](../0009-pilot-release-recovery/index.md) selects SMTP in the production target manifest, records delivery and limiter evidence, and separates demo voice activation from full pilot enable gates.
 * [ ] Scope feature 12 supplies the approved deletion procedure covering account, setup, recovery, audit and operator checkpoint retention.
 * [ ] Future email changes and role conversion require separate designs. No current UI or generic provider patch may introduce them implicitly.
 * [ ] Existing optional official skills and MCP candidates remain recorded for later consideration. Connect and install nothing in this phase.

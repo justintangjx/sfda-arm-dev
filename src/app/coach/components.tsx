@@ -330,7 +330,13 @@ export function VoicePanel({
             I understand and am authorised to share these observations.
           </label>
           {adapter.caption && (
-            <p aria-live="polite" className={styles.plainText}>
+            <p
+              aria-live="polite"
+              className={styles.plainText}
+              role={
+                adapter.caption.includes('Demo voice') ? 'status' : undefined
+              }
+            >
               {adapter.caption}
             </p>
           )}

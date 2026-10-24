@@ -1,4 +1,9 @@
 import manifestValue from '../../verification/voice-config.json'
+import demoActivationValue from '../../verification/demo-voice-activation.json'
+import {
+  demoActivationMatchesProduction,
+  readDemoVoiceActivation,
+} from '../domain/pilot-release'
 import { isObject, isUuid } from '../domain/feedback'
 import type { PublicConfiguration } from '../domain/configuration'
 import { sha256 } from './account-http'
@@ -165,13 +170,27 @@ export const readLocalVoiceRun = (
     return undefined
   return value as LocalVoiceRun
 }
+export type VoiceAuthorisationGate = Readonly<{
+  manifest: VoiceManifest
+  fingerprint: string
+  authorisation: Readonly<{
+    kind: 'local_verification' | 'production_activation'
+    evidenceId: string
+    until: string
+    localRun?: Readonly<{ cases: readonly VoiceStartTarget[] }>
+  }>
+  apiKey: string
+  run?: LocalVoiceRun
+}>
+
 export const voiceAuthorisation = async (
   config: PublicConfiguration,
   env: VoiceBindings,
   target: VoiceStartTarget,
   now = Date.now(),
   manifestInput: unknown = manifestValue,
-) => {
+  demoActivationInput: unknown = demoActivationValue,
+): Promise<VoiceAuthorisationGate | undefined> => {
   if (!config.voiceEnabled || config.appEnv === 'preview') return undefined
   const manifest = readVoiceManifest(manifestInput)
   if (
@@ -185,8 +204,35 @@ export const voiceAuthorisation = async (
     return undefined
   const fingerprint = await voiceManifestFingerprint(manifest)
   if (fingerprint !== env.VOICE_CONFIG_FINGERPRINT) return undefined
-  // Production activation is delivered by the separately approved hosted release path.
-  // No browser input or local record can stand in for its verified activation ledger.
+  if (config.appEnv === 'production') {
+    const record = readDemoVoiceActivation(demoActivationInput)
+    const evidenceId =
+      typeof env.VOICE_ACTIVATION_EVIDENCE_ID === 'string'
+        ? env.VOICE_ACTIVATION_EVIDENCE_ID.trim()
+        : ''
+    if (
+      !record ||
+      !isUuid(evidenceId) ||
+      !demoActivationMatchesProduction(record, {
+        appOrigin: config.appOrigin,
+        releaseId: config.releaseId,
+        configurationFingerprint: fingerprint,
+        evidenceId,
+        now,
+      })
+    )
+      return undefined
+    return {
+      manifest,
+      fingerprint,
+      authorisation: {
+        kind: 'production_activation',
+        evidenceId: record.activationId,
+        until: record.expiresAt,
+      },
+      apiKey: env.ELEVENLABS_API_KEY,
+    }
+  }
   if (config.appEnv !== 'local') return undefined
   let input: unknown
   try {

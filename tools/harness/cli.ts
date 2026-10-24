@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { readFile, realpath, writeFile } from 'node:fs/promises'
+import { access, readFile, realpath, writeFile } from 'node:fs/promises'
 import { join, resolve, relative } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import type { Capability, Report, Result } from './contracts.js'
@@ -33,11 +33,15 @@ import type { Evidence } from './evidence.js'
 import { githubReader, validateOwners } from './provenance.js'
 import {
   assertMigrationTarget,
-  targetRule,
   validateMigrationSources,
 } from './migrations.js'
-import type { ProductionTarget } from './migrations.js'
-import { productionTargetAdapter } from './future-adapters.js'
+import { createProductionTargetAdapter } from './production-target-adapter.js'
+import {
+  parseLegacyMigrationTarget,
+  parseProductionTargetFile,
+  validateDemoVoiceActivationFile,
+  validateHostingProductionTarget,
+} from './production-target.js'
 import * as v from './validation.js'
 import {
   issueLocalVoiceRun,
@@ -234,6 +238,7 @@ const validateCoverage = async (root: string) => {
 }
 const main = async () => {
   const root = process.cwd()
+  const productionTargetAdapter = createProductionTargetAdapter(root)
   const options = parseOptions(process.argv.slice(2))
   const env = process.env
   if (env.HARNESS_BIN_DIR) {
@@ -295,6 +300,29 @@ const main = async () => {
   )
   await validateCoverage(root)
   await validateMigrationSources(root, manifest)
+  const productionTargetPath = join(root, 'verification/production-target.json')
+  try {
+    await access(productionTargetPath)
+    const productionTarget = await json(productionTargetPath)
+    const parsed = parseProductionTargetFile(productionTarget)
+    if (!parsed) v.invalid()
+    validateHostingProductionTarget(parsed)
+    if (
+      parsed.voiceRequestLimiterNamespace &&
+      !validateDemoVoiceActivationFile(
+        await json(join(root, 'verification/demo-voice-activation.json')),
+      )
+    )
+      v.invalid()
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      'code' in error &&
+      (error as NodeJS.ErrnoException).code === 'ENOENT'
+    ) {
+      /* Manifest is recorded when production hosting is provisioned. */
+    } else throw error
+  }
   const capabilitySelection = selectedCapabilities(
     options.profile,
     manifest.requestedActivations,
@@ -389,7 +417,8 @@ const main = async () => {
             throw error
         }
       }
-      const current = await productionTargetAdapter?.currentState()
+      const targetState = await productionTargetAdapter.currentState()
+      const current = targetState.deployedSha ? targetState : undefined
       results.push(
         ...readinessResults({
           registry,
@@ -442,11 +471,19 @@ const main = async () => {
       else {
         // The real promotion workflow must supply the coordinated lock. Until
         // that adapter exists, a standalone CLI cannot claim a promotion read.
-        const target = v.parse<ProductionTarget>(targetValue, targetRule)
-        assertMigrationTarget(target, env)
-        results.push(
-          resultFor(check, 'missing', 'PROMOTION_LOCK_ADAPTER_UNAVAILABLE'),
-        )
+        const file = parseProductionTargetFile(targetValue)
+        const target =
+          file?.migrationReader ?? parseLegacyMigrationTarget(targetValue)
+        if (!target) {
+          results.push(
+            resultFor(check, 'missing', 'PRODUCTION_TARGET_UNAVAILABLE'),
+          )
+        } else {
+          assertMigrationTarget(target, env)
+          results.push(
+            resultFor(check, 'missing', 'PROMOTION_LOCK_ADAPTER_UNAVAILABLE'),
+          )
+        }
       }
     } else if (options.mode === 'voice-live') {
       const cases =

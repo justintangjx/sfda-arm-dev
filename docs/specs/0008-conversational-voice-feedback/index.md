@@ -273,7 +273,7 @@ The initial voice and model are supplied defaults pinned at setup, not a claim t
 ## Follow-up
 
 * [ ] Feature 10 designs final voice eligibility and its full review path. This specification does not enable final sessions.
-* [ ] Authorised provider setup supplies exact agent, version, voice/model IDs and current configuration. Complete the compatibility, pricing and privacy evidence in verify.md before activation.
+* [ ] Authorised provider setup supplies exact agent, version, voice/model IDs and current configuration. Complete the compatibility, pricing and privacy evidence in verify.md before full pilot activation. Hosted **demo voice** follows [0009](../0009-pilot-release-recovery/index.md) demo activation rules and requires Worker `production_activation` implementation.
 * [ ] SFDA confirms adults only eligibility, permissions, actual global processing and the approved deletion procedure. Retention observations do not establish that policy on their own.
 * [ ] Optional skills deferred by you: ElevenLabs `agents`, Supabase `supabase-postgres-best-practices`, Cloudflare `workers-best-practices` and `wrangler`, React Router `react-router`. Confirm the Router installation path before any installation. No skill installation is authorised here.
 * [ ] Optional MCP connections deferred by you: local Supabase first, then Cloudflare's relevant managed server and ElevenLabs hosted MCP during corresponding setup. No connection is authorised here.

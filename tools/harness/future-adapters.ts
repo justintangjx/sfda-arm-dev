@@ -44,5 +44,6 @@ export type ProductionTargetAdapter = Readonly<{
   smoke: (signal: AbortSignal) => Promise<ProductionSmokeResult>
 }>
 export const liveProviderAdapter: LiveProviderAdapter | undefined = undefined
+export { createProductionTargetAdapter } from './production-target-adapter.js'
 export const productionTargetAdapter: ProductionTargetAdapter | undefined =
   undefined

@@ -64,7 +64,7 @@ No feedback was saved or submitted during the walkthrough. Voice recording and a
 | 8 | Campaign and player workspace | Slice 3 | in-progress |
 | 9 | Conversational voice feedback | Slice 4 | in-progress |
 | 10 | Final feedback and campaign closure | Slice 5 | planned |
-| 11 | Pilot release and recovery | Release | planned |
+| 11 | Pilot release and recovery | Release | in-progress |
 | 12 | Approved data deletion procedure | Release | planned |
 
 ## Foundations
@@ -258,13 +258,24 @@ Let admins pause new feedback during competition, open final feedback afterwards
 
 ## Release
 
-### 11. Pilot release and recovery · planned · needs a decision
+### 11. Pilot release and recovery · in-progress
 
 Prepare a controlled coach pilot with real account delivery, database access, voice behaviour and a deployed application. Record which evidence is automated and which is verified in staging or by a human (basis: your chosen GA verification and the difference between mock and deployed evidence).
 
 **Done when:** deployment configuration and migrations match the approved specifications, browser and device checks pass, backup and rollback procedures are exercised, provider usage and errors are observable without exposing player feedback, and the release record names every verified or unresolved gate.
 
-* [ ] Design pilot readiness (spec): `/architect pilot release and recovery`
+**Spec:** [0009](../specs/0009-pilot-release-recovery/index.md), proposed 21 October 2026.
+
+* [x] Design pilot readiness (spec): `/architect pilot release and recovery`
+* [ ] Build it: `/develop pilot release and recovery`
+  * [x] Production target manifest, [manual hosting setup guide](../specs/0009-pilot-release-recovery/manual-hosting-setup.md), and migration gate wiring (AC-1, AC-2, AC-10, AC-12)
+  * [ ] Hosted live deploy proof with account ops and SMTP evidence (AC-3)
+  * [x] Demo voice activation record plus Worker production authorization path (AC-4, AC-5, AC-8)
+  * [x] Production smoke adapter, recovery checklists, and pilot readiness integration (AC-6, AC-7, AC-9)
+* [ ] Verify it: `/check verify pilot release and recovery`
+* [ ] Test it: `/test pilot release and recovery`
+* [ ] Review it (fresh model): `/check review pilot release and recovery`
+* [ ] Document it: `/document pilot release and recovery`
 
 ### 12. Approved data deletion procedure · planned · needs a decision · from spec 0002
 
