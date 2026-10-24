@@ -31,7 +31,7 @@
       "name": "sfda-arm-dev-production",
       "vars": {
         "APP_ENV": "production",
-        "APP_ORIGIN": "https://sfda-arm-dev-production.example.workers.dev",
+        "APP_ORIGIN": "https://sfda-arm-dev-production.justintang.workers.dev ",
         "RELEASE_ID": "0000000000000000000000000000000000000000",
         "VOICE_ENABLED": "false",
         "ACCOUNT_OPERATIONS_ENABLED": "false",
